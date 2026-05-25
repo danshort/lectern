@@ -41,6 +41,22 @@ func (m *Model) handleTick() tea.Cmd {
 		if sameNames(m.project.Changes, diskChanges) &&
 			sameStrings(archiveNames, diskArchives) &&
 			sameStrings(specNames, diskSpecs) {
+			needsRefresh := false
+			for i := range m.project.Changes {
+				ch := &m.project.Changes[i]
+				fresh := openspec.ReloadChange(*ch)
+				if fresh.Tasks.Present != ch.Tasks.Present || fresh.Tasks.Content != ch.Tasks.Content {
+					ch.Tasks = fresh.Tasks
+					needsRefresh = true
+				}
+			}
+			if needsRefresh {
+				m.buildIndexItems()
+				if m.indexCursor >= len(m.indexItems) {
+					m.indexCursor = max(0, len(m.indexItems)-1)
+				}
+				m.refreshIndexViewport()
+			}
 			return nil
 		}
 
