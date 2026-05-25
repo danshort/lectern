@@ -99,6 +99,21 @@ func LoadFrom(root string) (*Project, error) {
 
 		project.Changes = append(project.Changes, ch)
 	}
+
+	sort.SliceStable(project.Changes, func(i, j int) bool {
+		a, b := project.Changes[i].Created, project.Changes[j].Created
+		switch {
+		case a == "" && b == "":
+			return project.Changes[i].Name < project.Changes[j].Name
+		case a == "":
+			return false
+		case b == "":
+			return true
+		default:
+			return a > b
+		}
+	})
+
 	return project, nil
 }
 

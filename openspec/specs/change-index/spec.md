@@ -84,7 +84,7 @@ The helpbar in `ModeIndex` SHALL show navigation hints and SHALL reflect the cur
 - **THEN** the helpbar shows `j/k: navigate  Enter: open  Space: expand  s: sort by name  Esc: quit`
 
 ### Requirement: Actualización en tiempo real del índice
-While the mode is `ModeIndex`, the TUI SHALL detect on each tick (≤ 500 ms) whether the list of active changes, the list of archived changes, or the list of project specs has changed on disk. If any change is detected, the index SHALL reload all three lists, rebuild the navigable items, and refresh the viewport without the user having to leave and re-enter `ModeIndex`. The cursor SHALL be preserved if the resulting index has at least as many items as the current position; otherwise it SHALL move to the last available item.
+While the mode is `ModeIndex`, the TUI SHALL detect on each tick (≤ 500 ms) whether the list of active changes, the list of archived changes, or the list of project specs has changed on disk. If any structural change is detected, the index SHALL reload all three lists, rebuild the navigable items, and refresh the viewport without the user having to leave and re-enter `ModeIndex`. Additionally, when no structural change is detected, the TUI SHALL reload the task content of each active change from disk and, if any task content has changed, SHALL rebuild the index items and refresh the viewport so that progress bars reflect the latest task completion state. The cursor SHALL be preserved if the resulting index has at least as many items as the current position; otherwise it SHALL move to the last available item.
 
 #### Scenario: Nuevo spec aparece en disco mientras el índice está abierto
 - **WHEN** the mode is `ModeIndex` and a new directory is created in `openspec/specs/`
@@ -109,3 +109,18 @@ While the mode is `ModeIndex`, the TUI SHALL detect on each tick (≤ 500 ms) wh
 #### Scenario: Cursor reajustado cuando el ítem desaparece
 - **WHEN** the index reloads and the number of items is less than the current cursor position
 - **THEN** the cursor moves to the last available item
+
+#### Scenario: Tareas actualizadas en disco mientras el índice está abierto
+- **WHEN** the mode is `ModeIndex` and the `tasks.md` file of an active change is externally modified (e.g., a checkbox is toggled)
+- **THEN** within a maximum of 500 ms the progress bar for that change in the index reflects the updated `done/total` count without user intervention
+
+### Requirement: Orden de cambios activos por fecha
+Active changes in the index SHALL be displayed in creation date order, newest first, as provided by the loader.
+
+#### Scenario: Índice con cambios de fechas variadas
+- **WHEN** the index is rendered and active changes have different creation dates
+- **THEN** the newest change appears first in the "Active Changes" section
+
+#### Scenario: Cambio sin fecha aparece al final
+- **WHEN** an active change has no `created` date
+- **THEN** it appears after all dated changes in the "Active Changes" section

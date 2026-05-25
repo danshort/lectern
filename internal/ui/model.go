@@ -126,6 +126,12 @@ func New(project *openspec.Project, cfg openspec.ProjectConfig, root string) Mod
 	if len(project.Changes) > 0 {
 		m.tab = m.defaultTab()
 		m.loadTaskItems()
+	} else {
+		m.archiveChanges, _ = openspec.ListArchiveChangesFrom(root)
+		m.projectSpecs, _ = openspec.LoadProjectSpecsFrom(root)
+		m.expandedSpecs = make(map[int]bool)
+		m.buildIndexItems()
+		m.mode = ModeIndex
 	}
 	return m
 }
