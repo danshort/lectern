@@ -413,8 +413,12 @@ func sameNames(changes []openspec.Change, diskNames []string) bool {
 	if len(changes) != len(diskNames) {
 		return false
 	}
-	for i, ch := range changes {
-		if ch.Name != diskNames[i] {
+	diskSet := make(map[string]struct{}, len(diskNames))
+	for _, n := range diskNames {
+		diskSet[n] = struct{}{}
+	}
+	for _, ch := range changes {
+		if _, ok := diskSet[ch.Name]; !ok {
 			return false
 		}
 	}
