@@ -46,7 +46,7 @@ func (m *Model) loadViewport() tea.Cmd {
 			return nil
 		}
 		m.loading = true
-		m.vp.SetContent("\n  Loading...")
+		m.vp.SetContent(raw)
 		width := m.width - 2
 		if width < 20 {
 			width = 80
@@ -77,7 +77,7 @@ func (m *Model) loadViewport() tea.Cmd {
 			return nil
 		}
 		m.loading = true
-		m.vp.SetContent("\n  Cargando...")
+		m.vp.SetContent(raw)
 		width := m.width - 2
 		if width < 20 {
 			width = 80
@@ -163,9 +163,9 @@ func (m *Model) loadViewport() tea.Cmd {
 		return nil
 	}
 
-	// Show placeholder immediately, render in background.
+	// Show raw content immediately, render styled version in background.
 	m.loading = true
-	m.vp.SetContent("\n  Cargando...")
+	m.vp.SetContent(raw)
 
 	tab := m.tab
 	width := m.width - 2
