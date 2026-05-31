@@ -83,6 +83,7 @@ var (
 	rxBold = regexp.MustCompile(`\*\*(.+?)\*\*`)
 
 	underlineStyle = lipgloss.NewStyle().Underline(true)
+	doneCodeStyle  = lipgloss.NewStyle().Underline(true).Foreground(lipgloss.Color("8"))
 	boldStyle      = lipgloss.NewStyle().Bold(true)
 	cyanStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("6"))
 )
@@ -99,7 +100,7 @@ func extractOpeningEscape(style lipgloss.Style) string {
 func inlineMarkdown(s, restore string, done bool) string {
 	if done {
 		s = rxCode.ReplaceAllStringFunc(s, func(m string) string {
-			return underlineStyle.Render(rxCode.FindStringSubmatch(m)[1]) + restore
+			return doneCodeStyle.Render(rxCode.FindStringSubmatch(m)[1]) + restore
 		})
 		s = rxBold.ReplaceAllStringFunc(s, func(m string) string {
 			return boldStyle.Render(rxBold.FindStringSubmatch(m)[1]) + restore
