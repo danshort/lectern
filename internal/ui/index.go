@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -344,11 +345,16 @@ func (m *Model) renderIndexContent() (string, int) {
 		line++
 	} else {
 		maxName := 0
+		maxReqCount := 0
 		for _, ps := range m.projectSpecs {
 			if len(ps.Name) > maxName {
 				maxName = len(ps.Name)
 			}
+			if ps.RequirementCount > maxReqCount {
+				maxReqCount = ps.RequirementCount
+			}
 		}
+		maxReqDigits := len(strconv.Itoa(maxReqCount))
 		anyVisible := false
 		for i := activeEnd; i < specEnd; i++ {
 			if !m.isItemVisible(i) {
@@ -364,7 +370,7 @@ func (m *Model) renderIndexContent() (string, int) {
 			if item.kind == indexKindSpec {
 				ps := m.projectSpecs[item.idx]
 				pad := strings.Repeat(" ", maxName-len(ps.Name))
-				label := helpStyle.Render(fmt.Sprintf("%d requirements", ps.RequirementCount))
+				label := helpStyle.Render(fmt.Sprintf("%*d requirements", maxReqDigits, ps.RequirementCount))
 				cursorMark := "  "
 				name := ps.Name
 				if cursor {
