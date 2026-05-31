@@ -184,11 +184,18 @@ func (m *Model) renderHelpBar() string {
 		return errStyle.Render(m.errMsg)
 	}
 	if m.mode == ModeIndex {
+		if m.index.FilterActive {
+			return helpStyle.Render("/" + m.index.FilterText + "█")
+		}
 		sortHint := "s: sort by suffix"
 		if m.index.SortBySuffix {
 			sortHint = "s: sort by name"
 		}
-		return helpStyle.Render("j/k: navigate  Enter: open  Space: expand  click: select  " + sortHint + "  i: info  Esc: quit")
+		text := "j/k: navigate  Enter: open  Space: expand  click: select  " + sortHint + "  i: info  Esc: quit"
+		if m.index.FilterText != "" {
+			text += "  [/" + m.index.FilterText + "]"
+		}
+		return helpStyle.Render(text)
 	}
 	if m.mode == ModeViewingConfig {
 		return helpStyle.Render("j/k: scroll  i/Esc: back  q: quit")

@@ -409,6 +409,281 @@ func TestHandleTick(t *testing.T) {
 	})
 }
 
+func TestMatchesFilter(t *testing.T) {
+	m := &Model{
+		project: &openspec.Project{
+			Changes: []openspec.Change{{Name: "data-export"}, {Name: "auth-module"}},
+		},
+		projectSpecs: []openspec.ProjectSpec{
+			{Name: "mouse-navigation", RequirementNames: []string{"Wheel events", "Click select"}},
+		},
+		index: indexState{
+			ExpandedSpecs: make(map[int]bool),
+			ArchiveChanges: []openspec.Change{
+				{Name: "refactor-tick", DisplayDate: "30/05/2026"},
+			},
+		},
+	}
+	m.buildIndexItems()
+
+	t.Run("active change matches name", func(t *testing.T) {
+		item := m.index.Items[0]
+		if !m.matchesFilter(item, "data") {
+			t.Error("expected 'data-export' to match 'data'")
+		}
+	})
+
+	t.Run("active change case insensitive", func(t *testing.T) {
+		item := m.index.Items[1]
+		if !m.matchesFilter(item, "auth") {
+			t.Error("expected 'auth-module' to match 'auth'")
+		}
+	})
+
+	t.Run("active change no match", func(t *testing.T) {
+		item := m.index.Items[0]
+		if m.matchesFilter(item, "xyz") {
+			t.Error("expected 'data-export' not to match 'xyz'")
+		}
+	})
+
+	t.Run("spec matches name", func(t *testing.T) {
+		item := m.index.Items[2]
+		if !m.matchesFilter(item, "mouse") {
+			t.Error("expected spec name to match 'mouse'")
+		}
+	})
+
+	t.Run("requirement matches name", func(t *testing.T) {
+		item := indexItem{kind: indexKindRequirement, idx: 0, reqIdx: 0}
+		if !m.matchesFilter(item, "wheel") {
+			t.Error("expected requirement to match 'wheel'")
+		}
+	})
+
+	t.Run("archived change matches name", func(t *testing.T) {
+		item := m.index.Items[3]
+		if !m.matchesFilter(item, "tick") {
+			t.Error("expected archived name to match 'tick'")
+		}
+	})
+
+	t.Run("substring partial match", func(t *testing.T) {
+		item := m.index.Items[0]
+		if !m.matchesFilter(item, "port") {
+			t.Error("expected 'data-export' to match substring 'port'")
+		}
+	})
+}
+
+func TestApplyFilter(t *testing.T) {
+	items := []indexItem{
+		{kind: indexKindActive, idx: 0},
+		{kind: indexKindActive, idx: 1},
+		{kind: indexKindSpec, idx: 0},
+	}
+	m := &Model{
+		project: &openspec.Project{
+			Changes: []openspec.Change{{Name: "data-export"}, {Name: "auth-module"}},
+		},
+		projectSpecs: []openspec.ProjectSpec{
+			{Name: "data-pipeline"},
+		},
+		index: indexState{
+			Items:         items,
+			Cursor:        2,
+			ExpandedSpecs: make(map[int]bool),
+		},
+	}
+
+	t.Run("filter set builds FilterIndices", func(t *testing.T) {
+		m.index.FilterText = "data"
+		m.applyFilter()
+		if m.index.FilterIndices == nil {
+			t.Fatal("expected non-nil FilterIndices")
+		}
+		if len(m.index.FilterIndices) != 2 {
+			t.Errorf("expected 2 matching items, got %d (%v)", len(m.index.FilterIndices), m.index.FilterIndices)
+		}
+	})
+
+	t.Run("cursor clamped to visible count", func(t *testing.T) {
+		m.index.Cursor = 5
+		m.applyFilter()
+		if m.index.Cursor != 0 {
+			t.Errorf("expected cursor 0 after clamping, got %d", m.index.Cursor)
+		}
+	})
+
+	t.Run("empty filter clears FilterIndices", func(t *testing.T) {
+		m.index.FilterText = ""
+		m.applyFilter()
+		if m.index.FilterIndices != nil {
+			t.Error("expected nil FilterIndices when FilterText is empty")
+		}
+	})
+}
+
+func TestIndexFilterKeypresses(t *testing.T) {
+	m := Model{
+		mode:  ModeIndex,
+		width: 80,
+		project: &openspec.Project{
+			Changes: []openspec.Change{{Name: "data-export"}, {Name: "auth-module"}},
+		},
+		index: indexState{
+			ExpandedSpecs: make(map[int]bool),
+			Items: []indexItem{
+				{kind: indexKindActive, idx: 0},
+				{kind: indexKindActive, idx: 1},
+			},
+			Cursor: 0,
+		},
+	}
+	m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+	m.vpReady = true
+
+	t.Run("/ enters filter mode", func(t *testing.T) {
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Text: "/"})
+		updated := result.(Model)
+		if !updated.index.FilterActive {
+			t.Error("expected FilterActive after pressing /")
+		}
+	})
+
+	t.Run("typing during filter mode updates FilterText", func(t *testing.T) {
+		m.index.FilterActive = true
+		m.index.FilterText = ""
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Text: "d"})
+		updated := result.(Model)
+		if updated.index.FilterText != "d" {
+			t.Errorf("expected FilterText 'd', got %q", updated.index.FilterText)
+		}
+	})
+
+	t.Run("backspace during filter removes char", func(t *testing.T) {
+		m.index.FilterActive = true
+		m.index.FilterText = "da"
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+		updated := result.(Model)
+		if updated.index.FilterText != "d" {
+			t.Errorf("expected FilterText 'd', got %q", updated.index.FilterText)
+		}
+	})
+
+	t.Run("enter in filter mode confirms", func(t *testing.T) {
+		m.index.FilterActive = true
+		m.index.FilterText = "data"
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+		updated := result.(Model)
+		if updated.index.FilterActive {
+			t.Error("expected FilterActive false after Enter")
+		}
+		if updated.index.FilterText != "data" {
+			t.Errorf("expected FilterText 'data' to persist, got %q", updated.index.FilterText)
+		}
+	})
+
+	t.Run("esc in filter mode cancels and reverts", func(t *testing.T) {
+		m.index.FilterActive = true
+		m.index.PrevFilterText = ""
+		m.index.FilterText = "foo"
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+		updated := result.(Model)
+		if updated.index.FilterActive {
+			t.Error("expected FilterActive false after Esc in filter mode")
+		}
+		if updated.index.FilterText != "" {
+			t.Errorf("expected FilterText reverted to '', got %q", updated.index.FilterText)
+		}
+	})
+
+	t.Run("esc with filter clears it", func(t *testing.T) {
+		m.index.FilterActive = false
+		m.index.FilterText = "data"
+		result, cmd := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+		updated := result.(Model)
+		if cmd != nil {
+			t.Error("expected nil cmd (filter cleared, not quit)")
+		}
+		if updated.index.FilterText != "" {
+			t.Errorf("expected empty FilterText after Esc, got %q", updated.index.FilterText)
+		}
+	})
+
+	t.Run("esc without filter quits", func(t *testing.T) {
+		m.index.FilterActive = false
+		m.index.FilterText = ""
+		_, cmd := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEsc})
+		if cmd == nil {
+			t.Error("expected quit cmd when no filter active")
+		}
+	})
+}
+
+func TestIndexFilterNoMatchMessage(t *testing.T) {
+	m := &Model{
+		width: 80,
+		project: &openspec.Project{
+			Changes: []openspec.Change{{Name: "data-export"}},
+		},
+		index: indexState{
+			ExpandedSpecs: make(map[int]bool),
+			FilterText:    "nonexistent",
+		},
+	}
+	m.buildIndexItems()
+	m.applyFilter()
+
+	content, _ := m.renderIndexContent()
+	if !strings.Contains(content, "No items match 'nonexistent'") {
+		t.Errorf("expected no-match message in filtered content, got:\n%s", content)
+	}
+}
+
+func TestIndexFilteredNavigation(t *testing.T) {
+	m := Model{
+		mode:  ModeIndex,
+		width: 80,
+		project: &openspec.Project{
+			Changes: []openspec.Change{{Name: "data-export"}, {Name: "user-auth"}},
+		},
+		index: indexState{
+			ExpandedSpecs: make(map[int]bool),
+			Items: []indexItem{
+				{kind: indexKindActive, idx: 0},
+				{kind: indexKindActive, idx: 1},
+			},
+			Cursor:      0,
+			FilterText:  "data",
+			FilterActive: false,
+		},
+	}
+	m.applyFilter()
+
+	t.Run("visibleItemCount returns filtered count", func(t *testing.T) {
+		if n := m.visibleItemCount(); n != 1 {
+			t.Errorf("expected 1 visible item, got %d", n)
+		}
+	})
+
+	t.Run("j/k navigate filtered list", func(t *testing.T) {
+		// Try to move past the only visible item
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Text: "j"})
+		updated := result.(Model)
+		if updated.index.Cursor != 0 {
+			t.Errorf("expected cursor 0 (only 1 visible), got %d", updated.index.Cursor)
+		}
+	})
+
+	t.Run("visibleItemIdx maps through filter", func(t *testing.T) {
+		idx := m.visibleItemIdx(0)
+		if idx != 0 {
+			t.Errorf("expected raw index 0 (data-export), got %d", idx)
+		}
+	})
+}
+
 func TestRenderTabBar(t *testing.T) {
 	t.Run("active tab highlighted", func(t *testing.T) {
 		m := &Model{
