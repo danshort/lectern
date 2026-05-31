@@ -52,10 +52,24 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		if !found {
 			return m, nil
 		}
-		if m.index.Cursor != idx {
-			m.index.Cursor = idx
-			m.refreshIndexViewport()
-			return m, nil
+		if m.index.FilterIndices != nil {
+			cursorItem := m.index.FilterIndices[m.index.Cursor]
+			if cursorItem != idx {
+				for ci, ri := range m.index.FilterIndices {
+					if ri == idx {
+						m.index.Cursor = ci
+						break
+					}
+				}
+				m.refreshIndexViewport()
+				return m, nil
+			}
+		} else {
+			if m.index.Cursor != idx {
+				m.index.Cursor = idx
+				m.refreshIndexViewport()
+				return m, nil
+			}
 		}
 		return m.clickIndexItem(idx)
 	}

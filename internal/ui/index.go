@@ -62,8 +62,9 @@ func (m *Model) pollIndexMode() tea.Cmd {
 		}
 		if needsRefresh {
 			m.buildIndexItems()
-			if m.index.Cursor >= len(m.index.Items) {
-				m.index.Cursor = max(0, len(m.index.Items)-1)
+			m.applyFilter()
+			if m.index.Cursor >= m.visibleItemCount() {
+				m.index.Cursor = max(0, m.visibleItemCount()-1)
 			}
 			m.refreshIndexViewport()
 		}
@@ -85,8 +86,9 @@ func (m *Model) pollIndexMode() tea.Cmd {
 	}
 	m.index.ExpandedSpecs = make(map[int]bool)
 	m.buildIndexItems()
-	if m.index.Cursor >= len(m.index.Items) {
-		m.index.Cursor = max(0, len(m.index.Items)-1)
+	m.applyFilter()
+	if m.index.Cursor >= m.visibleItemCount() {
+		m.index.Cursor = max(0, m.visibleItemCount()-1)
 	}
 	m.refreshIndexViewport()
 	return nil
@@ -170,6 +172,66 @@ func (m *Model) enterIndex() {
 	m.refreshIndexViewport()
 }
 
+func (m *Model) visibleItemIdx(rawIdx int) int {
+	if m.index.FilterIndices != nil {
+		return m.index.FilterIndices[rawIdx]
+	}
+	return rawIdx
+}
+
+func (m *Model) visibleItemCount() int {
+	if m.index.FilterIndices != nil {
+		return len(m.index.FilterIndices)
+	}
+	return len(m.index.Items)
+}
+
+func (m *Model) matchesFilter(item indexItem, lowerQuery string) bool {
+	switch item.kind {
+	case indexKindActive:
+		if item.idx < len(m.project.Changes) {
+			return strings.Contains(strings.ToLower(m.project.Changes[item.idx].Name), lowerQuery)
+		}
+	case indexKindArchived:
+		if item.idx < len(m.index.ArchiveChanges) {
+			return strings.Contains(strings.ToLower(m.index.ArchiveChanges[item.idx].Name), lowerQuery)
+		}
+	case indexKindSpec:
+		if item.idx < len(m.projectSpecs) {
+			return strings.Contains(strings.ToLower(m.projectSpecs[item.idx].Name), lowerQuery)
+		}
+	case indexKindRequirement:
+		if item.idx < len(m.projectSpecs) && item.reqIdx < len(m.projectSpecs[item.idx].RequirementNames) {
+			return strings.Contains(strings.ToLower(m.projectSpecs[item.idx].RequirementNames[item.reqIdx]), lowerQuery)
+		}
+	}
+	return false
+}
+
+func (m *Model) isItemVisible(idx int) bool {
+	if m.index.FilterText == "" {
+		return true
+	}
+	return m.matchesFilter(m.index.Items[idx], strings.ToLower(m.index.FilterText))
+}
+
+func (m *Model) applyFilter() {
+	if m.index.FilterText == "" {
+		m.index.FilterIndices = nil
+		return
+	}
+	lower := strings.ToLower(m.index.FilterText)
+	m.index.FilterIndices = nil
+	for i := range m.index.Items {
+		if m.matchesFilter(m.index.Items[i], lower) {
+			m.index.FilterIndices = append(m.index.FilterIndices, i)
+		}
+	}
+	if m.index.Cursor >= len(m.index.FilterIndices) {
+		m.index.Cursor = 0
+	}
+}
+
 func specSuffix(name string) string {
 	if i := strings.LastIndex(name, "-"); i >= 0 {
 		return name[i+1:]
@@ -220,11 +282,27 @@ func (m *Model) refreshIndexViewport() {
 	}
 }
 
+func (m *Model) isCursorAt(rawIdx int) bool {
+	if m.index.FilterIndices != nil {
+		return m.index.Cursor < len(m.index.FilterIndices) && m.index.FilterIndices[m.index.Cursor] == rawIdx
+	}
+	return m.index.Cursor == rawIdx
+}
+
 func (m *Model) renderIndexContent() (string, int) {
 	contentWidth := m.width - 2
 	var sb strings.Builder
 	line := 0
 	cursorLine := 0
+
+	activeEnd := 0
+	for activeEnd < len(m.index.Items) && m.index.Items[activeEnd].kind == indexKindActive {
+		activeEnd++
+	}
+	specEnd := activeEnd
+	for specEnd < len(m.index.Items) && (m.index.Items[specEnd].kind == indexKindSpec || m.index.Items[specEnd].kind == indexKindRequirement) {
+		specEnd++
+	}
 
 	sb.WriteString("\n")
 	line++
@@ -235,14 +313,22 @@ func (m *Model) renderIndexContent() (string, int) {
 		sb.WriteString(helpStyle.Render("  No active changes") + "\n")
 		line++
 	} else {
-		for i, ch := range m.project.Changes {
-			cursor := m.index.Cursor < len(m.index.Items) &&
-				m.index.Items[m.index.Cursor].kind == indexKindActive &&
-				m.index.Items[m.index.Cursor].idx == i
+		anyVisible := false
+		for i := 0; i < activeEnd; i++ {
+			if !m.isItemVisible(i) {
+				continue
+			}
+			anyVisible = true
+			ch := m.project.Changes[m.index.Items[i].idx]
+			cursor := m.isCursorAt(i)
 			if cursor {
 				cursorLine = line
 			}
 			sb.WriteString(m.renderActiveItem(ch, cursor, contentWidth) + "\n")
+			line++
+		}
+		if !anyVisible {
+			sb.WriteString(helpStyle.Render("  No items match '"+m.index.FilterText+"'") + "\n")
 			line++
 		}
 	}
@@ -263,43 +349,44 @@ func (m *Model) renderIndexContent() (string, int) {
 				maxName = len(ps.Name)
 			}
 		}
-		for _, i := range m.index.Order {
-			ps := m.projectSpecs[i]
-			cursor := m.index.Cursor < len(m.index.Items) &&
-				m.index.Items[m.index.Cursor].kind == indexKindSpec &&
-				m.index.Items[m.index.Cursor].idx == i
+		anyVisible := false
+		for i := activeEnd; i < specEnd; i++ {
+			if !m.isItemVisible(i) {
+				continue
+			}
+			anyVisible = true
+			item := m.index.Items[i]
+			cursor := m.isCursorAt(i)
 			if cursor {
 				cursorLine = line
 			}
-			pad := strings.Repeat(" ", maxName-len(ps.Name))
-			label := helpStyle.Render(fmt.Sprintf("%d requirements", ps.RequirementCount))
-			cursorMark := "  "
-			name := ps.Name
-			if cursor {
-				cursorMark = progressDoneStyle.Render("▶") + " "
-				name = indexActiveStyle.Render(ps.Name)
-			}
-			sb.WriteString(cursorMark + name + pad + "  " + label + "\n")
-			line++
-			if m.index.ExpandedSpecs[i] {
-				for r, reqName := range ps.RequirementNames {
-					reqCursor := m.index.Cursor < len(m.index.Items) &&
-						m.index.Items[m.index.Cursor].kind == indexKindRequirement &&
-						m.index.Items[m.index.Cursor].idx == i &&
-						m.index.Items[m.index.Cursor].reqIdx == r
-					if reqCursor {
-						cursorLine = line
-					}
-					reqMark := "    "
-					rName := taskPendingStyle.Render(reqName)
-					if reqCursor {
-						reqMark = "  " + progressDoneStyle.Render("▶") + " "
-						rName = indexActiveStyle.Render(reqName)
-					}
-					sb.WriteString(reqMark + rName + "\n")
-					line++
+
+			if item.kind == indexKindSpec {
+				ps := m.projectSpecs[item.idx]
+				pad := strings.Repeat(" ", maxName-len(ps.Name))
+				label := helpStyle.Render(fmt.Sprintf("%d requirements", ps.RequirementCount))
+				cursorMark := "  "
+				name := ps.Name
+				if cursor {
+					cursorMark = progressDoneStyle.Render("▶") + " "
+					name = indexActiveStyle.Render(ps.Name)
 				}
+				sb.WriteString(cursorMark + name + pad + "  " + label + "\n")
+				line++
+			} else {
+				reqMark := "    "
+				rName := taskPendingStyle.Render(m.projectSpecs[item.idx].RequirementNames[item.reqIdx])
+				if cursor {
+					reqMark = "  " + progressDoneStyle.Render("▶") + " "
+					rName = indexActiveStyle.Render(m.projectSpecs[item.idx].RequirementNames[item.reqIdx])
+				}
+				sb.WriteString(reqMark + rName + "\n")
+				line++
 			}
+		}
+		if !anyVisible {
+			sb.WriteString(helpStyle.Render("  No items match '"+m.index.FilterText+"'") + "\n")
+			line++
 		}
 	}
 
@@ -318,14 +405,22 @@ func (m *Model) renderIndexContent() (string, int) {
 				maxName = len(ch.Name)
 			}
 		}
-		for i, ch := range m.index.ArchiveChanges {
-			cursor := m.index.Cursor < len(m.index.Items) &&
-				m.index.Items[m.index.Cursor].kind == indexKindArchived &&
-				m.index.Items[m.index.Cursor].idx == i
+		anyVisible := false
+		for i := specEnd; i < len(m.index.Items); i++ {
+			if !m.isItemVisible(i) {
+				continue
+			}
+			anyVisible = true
+			ch := m.index.ArchiveChanges[m.index.Items[i].idx]
+			cursor := m.isCursorAt(i)
 			if cursor {
 				cursorLine = line
 			}
 			sb.WriteString(m.renderArchivedItem(ch, cursor, maxName) + "\n")
+			line++
+		}
+		if !anyVisible {
+			sb.WriteString(helpStyle.Render("  No items match '"+m.index.FilterText+"'") + "\n")
 			line++
 		}
 	}
@@ -407,6 +502,9 @@ func (m *Model) indexItemAtContentLine(contentLine int) (int, bool) {
 
 	if activeEnd > 0 {
 		for itemIdx := range activeEnd {
+			if !m.isItemVisible(itemIdx) {
+				continue
+			}
 			if line == contentLine {
 				return itemIdx, true
 			}
@@ -428,6 +526,9 @@ func (m *Model) indexItemAtContentLine(contentLine int) (int, bool) {
 
 	if specEnd > activeEnd {
 		for itemIdx := activeEnd; itemIdx < specEnd; itemIdx++ {
+			if !m.isItemVisible(itemIdx) {
+				continue
+			}
 			if line == contentLine {
 				return itemIdx, true
 			}
@@ -447,6 +548,9 @@ func (m *Model) indexItemAtContentLine(contentLine int) (int, bool) {
 	}
 
 	for itemIdx := specEnd; itemIdx < len(m.index.Items); itemIdx++ {
+		if !m.isItemVisible(itemIdx) {
+			continue
+		}
 		if line == contentLine {
 			return itemIdx, true
 		}
@@ -501,7 +605,46 @@ func sameStrings(a, b []string) bool {
 }
 
 func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.index.FilterActive {
+		switch msg.String() {
+		case "esc":
+			m.index.FilterText = m.index.PrevFilterText
+			m.index.FilterActive = false
+			m.applyFilter()
+			m.refreshIndexViewport()
+			return m, nil
+
+		case "enter":
+			m.index.FilterActive = false
+			m.refreshIndexViewport()
+			return m, nil
+
+		case "backspace":
+			if len(m.index.FilterText) > 0 {
+				m.index.FilterText = m.index.FilterText[:len(m.index.FilterText)-1]
+				m.applyFilter()
+				m.refreshIndexViewport()
+			}
+			return m, nil
+
+		default:
+			if len(msg.String()) == 1 {
+				m.index.FilterText += msg.String()
+				m.applyFilter()
+				m.refreshIndexViewport()
+			}
+			return m, nil
+		}
+	}
+
 	switch msg.String() {
+
+	case "/":
+		m.index.PrevFilterText = m.index.FilterText
+		m.index.FilterText = ""
+		m.index.FilterActive = true
+		m.index.FilterIndices = nil
+		m.refreshIndexViewport()
 
 	case "i":
 		m.prevMode = m.mode
@@ -509,10 +652,16 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.commitStateChange()
 
 	case "esc":
+		if m.index.FilterText != "" {
+			m.index.FilterText = ""
+			m.index.FilterIndices = nil
+			m.refreshIndexViewport()
+			return m, nil
+		}
 		return m, tea.Quit
 
 	case "j", "down":
-		if m.index.Cursor < len(m.index.Items)-1 {
+		if m.index.Cursor < m.visibleItemCount()-1 {
 			m.index.Cursor++
 		}
 		m.refreshIndexViewport()
@@ -524,8 +673,8 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.refreshIndexViewport()
 
 	case "enter":
-		if len(m.index.Items) > 0 {
-			item := m.index.Items[m.index.Cursor]
+		if m.visibleItemCount() > 0 {
+			item := m.index.Items[m.visibleItemIdx(m.index.Cursor)]
 			m.renderCache = make(map[Tab]string)
 			if item.kind == indexKindActive {
 				m.changeIdx = item.idx
@@ -557,21 +706,31 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "space":
-		if len(m.index.Items) > 0 {
-			item := m.index.Items[m.index.Cursor]
+		if m.visibleItemCount() > 0 {
+			item := m.index.Items[m.visibleItemIdx(m.index.Cursor)]
 			if item.kind == indexKindSpec {
 				specIdx := item.idx
 				m.index.ExpandedSpecs[specIdx] = !m.index.ExpandedSpecs[specIdx]
 				m.buildIndexItems()
+				m.applyFilter()
 				m.index.Cursor = 0
-				for i, it := range m.index.Items {
-					if it.kind == indexKindSpec && it.idx == specIdx {
-						m.index.Cursor = i
-						break
+				if m.index.FilterIndices != nil {
+					for i, idx := range m.index.FilterIndices {
+						if m.index.Items[idx].kind == indexKindSpec && m.index.Items[idx].idx == specIdx {
+							m.index.Cursor = i
+							break
+						}
+					}
+				} else {
+					for i, it := range m.index.Items {
+						if it.kind == indexKindSpec && it.idx == specIdx {
+							m.index.Cursor = i
+							break
+						}
 					}
 				}
-				if m.index.Cursor >= len(m.index.Items) {
-					m.index.Cursor = max(0, len(m.index.Items)-1)
+				if m.index.Cursor >= m.visibleItemCount() {
+					m.index.Cursor = max(0, m.visibleItemCount()-1)
 				}
 				m.refreshIndexViewport()
 			}
@@ -581,19 +740,29 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		savedKind := indexKindActive
 		savedIdx := -1
 		savedReqIdx := 0
-		if m.index.Cursor < len(m.index.Items) {
-			item := m.index.Items[m.index.Cursor]
+		if m.visibleItemCount() > 0 {
+			item := m.index.Items[m.visibleItemIdx(m.index.Cursor)]
 			savedKind = item.kind
 			savedIdx = item.idx
 			savedReqIdx = item.reqIdx
 		}
 		m.index.SortBySuffix = !m.index.SortBySuffix
 		m.buildIndexItems()
+		m.applyFilter()
 		if savedIdx >= 0 {
-			for i, it := range m.index.Items {
-				if it.kind == savedKind && it.idx == savedIdx && it.reqIdx == savedReqIdx {
-					m.index.Cursor = i
-					break
+			if m.index.FilterIndices != nil {
+				for i, idx := range m.index.FilterIndices {
+					if m.index.Items[idx].kind == savedKind && m.index.Items[idx].idx == savedIdx && m.index.Items[idx].reqIdx == savedReqIdx {
+						m.index.Cursor = i
+						break
+					}
+				}
+			} else {
+				for i, it := range m.index.Items {
+					if it.kind == savedKind && it.idx == savedIdx && it.reqIdx == savedReqIdx {
+						m.index.Cursor = i
+						break
+					}
 				}
 			}
 		}
