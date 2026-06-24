@@ -329,7 +329,7 @@ func (m *Model) renderIndexContent() (string, int) {
 			if cursor {
 				cursorLine = line
 			}
-			sb.WriteString(m.renderActiveItem(ch, cursor, contentWidth) + "\n")
+			sb.WriteString(m.renderActiveItem(ch, cursor, contentWidth) + validationMarker(openspec.ValidateChange(ch)) + "\n")
 			line++
 		}
 		if !anyVisible {
@@ -385,7 +385,7 @@ func (m *Model) renderIndexContent() (string, int) {
 					cursorMark = progressDoneStyle.Render("▶") + " "
 					name = indexActiveStyle.Render(ps.Name)
 				}
-				sb.WriteString(cursorMark + name + pad + "  " + label + "\n")
+				sb.WriteString(cursorMark + name + pad + "  " + label + validationMarker(openspec.ValidateSpec(ps.Content)) + "\n")
 				line++
 			} else {
 				reqMark := "    "
@@ -434,6 +434,8 @@ func (m *Model) renderIndexContent() (string, int) {
 			if cursor {
 				cursorLine = line
 			}
+			// Archived changes are frozen history; validation markers there
+			// would be noise the user can't act on, so they are not validated.
 			sb.WriteString(m.renderArchivedItem(ch, cursor, maxName) + "\n")
 			line++
 		}
@@ -444,6 +446,16 @@ func (m *Model) renderIndexContent() (string, int) {
 	}
 
 	return sb.String(), cursorLine
+}
+
+// validationMarker returns a trailing error marker for items that fail
+// validation, or "" when valid. It adds no lines, so the index click
+// hit-testing math (indexItemAtContentLine) is unaffected.
+func validationMarker(errs []string) string {
+	if len(errs) == 0 {
+		return ""
+	}
+	return " " + errStyle.Render("✗")
 }
 
 func (m *Model) renderActiveItem(ch openspec.Change, cursor bool, contentWidth int) string {

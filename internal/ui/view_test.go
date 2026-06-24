@@ -307,6 +307,47 @@ func TestArchiveTasksTabArrowDoesNotMoveCursor(t *testing.T) {
 	})
 }
 
+func TestIndexValidationMarker(t *testing.T) {
+	validSpec := openspec.ProjectSpec{
+		Name:    "good",
+		Content: "## Purpose\nP.\n\n## Requirements\n\n### Requirement: R\n#### Scenario: S\n- **WHEN** a\n- **THEN** b\n",
+	}
+	invalidSpec := openspec.ProjectSpec{
+		Name:    "bad",
+		Content: "## Purpose\nP only, no requirements section.\n",
+	}
+
+	t.Run("invalid spec gets a marker", func(t *testing.T) {
+		m := Model{
+			width:        80,
+			mode:         ModeIndex,
+			project:      &openspec.Project{},
+			index:        indexState{ExpandedSpecs: map[int]bool{}},
+			projectSpecs: []openspec.ProjectSpec{validSpec, invalidSpec},
+		}
+		m.buildIndexItems()
+		out, _ := m.renderIndexContent()
+		if !strings.Contains(out, "✗") {
+			t.Error("expected validation marker (✗) for the invalid spec")
+		}
+	})
+
+	t.Run("all-valid index has no marker", func(t *testing.T) {
+		m := Model{
+			width:        80,
+			mode:         ModeIndex,
+			project:      &openspec.Project{},
+			index:        indexState{ExpandedSpecs: map[int]bool{}},
+			projectSpecs: []openspec.ProjectSpec{validSpec},
+		}
+		m.buildIndexItems()
+		out, _ := m.renderIndexContent()
+		if strings.Contains(out, "✗") {
+			t.Error("did not expect a validation marker when all specs are valid")
+		}
+	})
+}
+
 func TestMoveCursorOnSections(t *testing.T) {
 	t.Run("moveCursorUp goes to section header", func(t *testing.T) {
 		m := &Model{
