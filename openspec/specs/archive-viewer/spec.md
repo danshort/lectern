@@ -2,10 +2,7 @@
 
 ## Purpose
 Defines the `ModeViewingArchive` mode for viewing artifacts of an archived change in read-only mode, with the same visual structure as normal mode but without editing or task toggling.
-
 ## Requirements
-
-
 ### Requirement: View artifacts of an archived change
 In `ViewingArchive` mode, the TUI SHALL display the artifacts of the selected archived change using the same visual structure as active changes: header, tab bar, separator, content. Keys `1`-`4`, `j`/`k` and `h`/`l` SHALL work the same as in normal mode to navigate between artifacts and scroll.
 
@@ -29,7 +26,7 @@ When the mode is `ViewingArchive`, the header SHALL display the text `[archive]`
 - **THEN** the header shows `<project>  ·  <archive-name>  [archive]`
 
 ### Requirement: Read-only in archive mode
-In `ViewingArchive` mode, keys `e` (open editor) and `Space` (task toggle) SHALL be silently ignored.
+In `ViewingArchive` mode, keys `e` (open editor) and `Space` (task toggle) SHALL be silently ignored. The Tasks tab SHALL be rendered as read-only content: `j`/`k` and the down/up arrows SHALL scroll the viewport and SHALL NOT move a task cursor.
 
 #### Scenario: 'e' ignored in archive mode
 - **WHEN** the mode is `ViewingArchive` and the user presses `e`
@@ -38,6 +35,11 @@ In `ViewingArchive` mode, keys `e` (open editor) and `Space` (task toggle) SHALL
 #### Scenario: 'Space' ignored in archive mode
 - **WHEN** the mode is `ViewingArchive` and the user presses `Space`
 - **THEN** no task changes its state
+
+#### Scenario: Arrow keys scroll the Tasks tab in archive mode
+- **WHEN** the mode is `ViewingArchive`, the active tab is `tasks`, and the user presses `j` or `k`
+- **THEN** the viewport scrolls and the task cursor position does not change
+- **AND** the rendered task list remains visible
 
 ### Requirement: Helpbar adaptado en modo archivo
 In `ViewingArchive` mode, the helpbar SHALL show the actual available keys, omitting `e` and `Space`, and including `Esc: index`.
@@ -56,3 +58,4 @@ In `ViewingArchive` mode, pressing `Esc` or `a` SHALL close the archive viewer a
 #### Scenario: 'a' vuelve al índice
 - **WHEN** the mode is `ViewingArchive` and the user presses `a`
 - **THEN** the mode switches to `ModeIndex`
+
