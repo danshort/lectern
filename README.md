@@ -32,6 +32,7 @@ A keyboard-driven terminal UI for reading and navigating [OpenSpec](https://gith
 ```bash
 # Homebrew
 brew tap danshort/tap
+brew trust danshort/tap   # one-time: Homebrew requires trusting third-party taps
 brew install speclio
 
 # From source

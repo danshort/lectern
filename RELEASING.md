@@ -50,7 +50,8 @@ These only need to be done once for the repository.
    ```bash
    brew update
    brew tap danshort/tap
-   brew install speclio   # or: brew upgrade speclio
+   brew trust danshort/tap   # one-time per machine: Homebrew blocks untrusted third-party taps
+   brew install speclio      # or: brew upgrade speclio
    speclio --version
    ```
 

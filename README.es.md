@@ -32,6 +32,7 @@ Interfaz de terminal controlada por teclado para leer y navegar artefactos de pr
 ```bash
 # Homebrew
 brew tap danshort/tap
+brew trust danshort/tap   # una vez: Homebrew requiere confiar en taps de terceros
 brew install speclio
 
 # Desde el código fuente
