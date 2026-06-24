@@ -2,6 +2,33 @@
 
 # Changelog
 
+## [0.16.0](https://github.com/danshort/speclio/compare/speclio-v0.15.0...speclio-v0.16.0) (2026-06-24)
+
+
+### Features
+
+* (internal) ability to change bg color ([08a4ce4](https://github.com/danshort/speclio/commit/08a4ce41f79eaf0aa7444795a067c2cd26fc88e0))
+* (internal) ability to change bg color ([eb0485c](https://github.com/danshort/speclio/commit/eb0485cd34412ddee19259bcde10cb9cf4f5a5e4))
+* arrow keys switch tabs when viewing a change ([#6](https://github.com/danshort/speclio/issues/6)) ([f8639b7](https://github.com/danshort/speclio/commit/f8639b7662113acf16aeb07985c5b46acc77a7f6))
+* basic mouse integration ([d839bc3](https://github.com/danshort/speclio/commit/d839bc32a4ab06f906e228d367d06c88d1aadbe6))
+* basic mouse integration ([2a998a2](https://github.com/danshort/speclio/commit/2a998a22c9454775c78fd774ee2563c472c85add))
+* search index ([bb59de3](https://github.com/danshort/speclio/commit/bb59de3975081570a7d65f716b7c04d1390bc42b))
+* search index ([90c7387](https://github.com/danshort/speclio/commit/90c7387968802eb9fd424c20a58df2d28b946dd0))
+* show project info ([15e3f98](https://github.com/danshort/speclio/commit/15e3f98627da58b05a32991f1eed96dbe9845d43))
+* show project info ([ce4348d](https://github.com/danshort/speclio/commit/ce4348ddb4eaabbbcb2a5ab8f3f7e93840db7146))
+* sort specs ([b09f2b3](https://github.com/danshort/speclio/commit/b09f2b3bf6e2f1bbb78fee00d99a9752be7cae85))
+* sort specs ([e13853f](https://github.com/danshort/speclio/commit/e13853f06f12a2a49f8cb021feaff23dc4535dbd))
+* validate specs and changes, surface errors in UI ([#5](https://github.com/danshort/speclio/issues/5)) ([3578e3b](https://github.com/danshort/speclio/commit/3578e3b59e2e6d48474c2c5626bf039c6b00cdf1))
+
+
+### Bug Fixes
+
+* archive tasks-tab arrows ([#7](https://github.com/danshort/speclio/issues/7)), dim-text contrast ([#4](https://github.com/danshort/speclio/issues/4)); add DEVELOPING.md ([621a65e](https://github.com/danshort/speclio/commit/621a65e4499af02b5503355c94e15ea56ab94569))
+* incorrect scroll in tasks view ([65f5d2c](https://github.com/danshort/speclio/commit/65f5d2c4979b212ae925774e6b99f0711f90688f))
+* incorrect scroll in tasks view ([8d12dc7](https://github.com/danshort/speclio/commit/8d12dc71022e23420fa7fd60014efb420694c9e4))
+* **openspec:** normalize openspec-root-path spec header ([b93bb63](https://github.com/danshort/speclio/commit/b93bb6337fb71f4391ca306592c3b199e2d65d45))
+* styles in done tasks ([0378524](https://github.com/danshort/speclio/commit/0378524b9d07c94796ae669a25ce4847f3be1b93))
+
 ## v0.15.0
 
 ### Changed
