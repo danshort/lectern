@@ -1,13 +1,15 @@
 **English** | **[Español](README.es.md)**
 
-# dossier
+# speclio
 
 A keyboard-driven terminal UI for reading and navigating [OpenSpec](https://github.com/openspec) project artifacts — proposals, designs, specs, and tasks.
+
+> **speclio is a fork of [dossier](https://github.com/fselich/dossier) by [fselich](https://github.com/fselich).** It was renamed as it diverges and is maintained independently. All credit for the original tool goes to the upstream author; see [LICENSE](LICENSE).
 
 > Built with OpenSpec. This repository contains 12 project-level spec files and 20+ archived changes that document the complete development history of the tool.
 
 <p align="center">
-  <img src="docs/dossier.gif" alt="dossier demo" />
+  <img src="docs/speclio.gif" alt="speclio demo" />
 </p>
 
 ---
@@ -30,16 +32,16 @@ A keyboard-driven terminal UI for reading and navigating [OpenSpec](https://gith
 ```bash
 # Homebrew
 brew tap danshort/tap
-brew install dossier
+brew install speclio
 
 # From source
-git clone https://github.com/danshort/dossier
-cd dossier
-make build    # produces ./dossier
+git clone https://github.com/danshort/speclio
+cd speclio
+make build    # produces ./speclio
 make install  # installs via go install
 
 # Using go install
-go install github.com/danshort/dossier/cmd/dossier@latest
+go install github.com/danshort/speclio/cmd/speclio@latest
 ```
 
 ---
@@ -49,13 +51,13 @@ go install github.com/danshort/dossier/cmd/dossier@latest
 Run from the root of an OpenSpec project:
 
 ```bash
-dossier
+speclio
 ```
 
 View a single change directory by path:
 
 ```bash
-dossier /path/to/openspec/changes/my-change
+speclio /path/to/openspec/changes/my-change
 ```
 
 ### Keyboard reference
@@ -116,7 +118,7 @@ In requirement focus mode:
 
 ## Project structure
 
-dossier expects an `openspec/` directory at the project root:
+speclio expects an `openspec/` directory at the project root:
 
 ```
 openspec/

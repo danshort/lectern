@@ -5,8 +5,8 @@ import (
 	"os"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/danshort/dossier/internal/openspec"
-	"github.com/danshort/dossier/internal/ui"
+	"github.com/danshort/speclio/internal/openspec"
+	"github.com/danshort/speclio/internal/ui"
 )
 
 var version string
@@ -19,12 +19,12 @@ func main() {
 	)
 
 	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
-		fmt.Println("dossier", version)
+		fmt.Println("speclio", version)
 		os.Exit(0)
 	}
 
 	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
-		fmt.Println("Usage: dossier [path]")
+		fmt.Println("Usage: speclio [path]")
 		fmt.Println()
 		fmt.Println("A keyboard-driven TUI for navigating OpenSpec project artifacts.")
 		fmt.Println()

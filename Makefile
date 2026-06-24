@@ -1,5 +1,5 @@
-BIN := dossier
-CMD := ./cmd/dossier
+BIN := speclio
+CMD := ./cmd/speclio
 
 .PHONY: build install test lint fmt clean
 

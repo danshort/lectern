@@ -1,4 +1,4 @@
-project_name: dossier
+project_name: speclio
 version: 2
 
 before:
@@ -8,9 +8,9 @@ before:
 
 builds:
   -
-    id: dossier
-    main: ./cmd/dossier/main.go
-    binary: dossier
+    id: speclio
+    main: ./cmd/speclio/main.go
+    binary: speclio
     goos:
       - linux
       - darwin
@@ -25,8 +25,8 @@ builds:
 
 archives:
   -
-    id: dossier-archive
-    ids: [dossier]
+    id: speclio-archive
+    ids: [speclio]
     name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
     formats: [tar.gz]
     files:
@@ -43,7 +43,7 @@ checksum:
 release:
   github:
     owner: danshort
-    name: dossier
+    name: speclio
   name_template: "v{{ .Version }}"
   draft: false
   prerelease: auto
@@ -51,8 +51,8 @@ release:
 
 brews:
   -
-    name: dossier
-    homepage: https://github.com/danshort/dossier
+    name: speclio
+    homepage: https://github.com/danshort/speclio
     description: "Keyboard-driven TUI for navigating OpenSpec project artifacts"
     license: MIT
     repository:
@@ -60,9 +60,9 @@ brews:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     install: |
-      bin.install "dossier"
+      bin.install "speclio"
     test: |
-      system "#{bin}/dossier", "--version"
+      system "#{bin}/speclio", "--version"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
