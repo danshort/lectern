@@ -34,7 +34,12 @@ release-please reads commit messages since the last release:
 | `feat!: ...` or `BREAKING CHANGE:` in body | major bump |
 | `chore:`, `docs:`, `refactor:`, `test:` | no release on their own |
 
-So just write good commit/PR-merge messages; the version and changelog follow.
+**The changelog comes from your PR titles.** The repo is squash-only, so each
+merged PR becomes one commit whose subject is the **PR title** — and that line
+is exactly what lands in the changelog. So write the PR title as the changelog
+entry you want, e.g. `feat: flag invalid specs with an error marker in the index`.
+A `PR Title` check (`.github/workflows/pr-title-lint.yml`) enforces the
+Conventional Commit format so a malformed title can't reach the changelog.
 
 ## One-time setup
 

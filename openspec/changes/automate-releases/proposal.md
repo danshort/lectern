@@ -9,6 +9,7 @@ Releases are fully manual today: hand-write a CHANGELOG entry, pick a version, t
 - Rework the release workflow into a single workflow: release-please runs on push to `main`; when it cuts a release, a gated GoReleaser job builds the binaries and updates the Homebrew tap. (A tag created by the default `GITHUB_TOKEN` cannot trigger a separate workflow, so the build must run in the same workflow run.)
 - GoReleaser switches to `release.mode: append` so it attaches binaries to the release release-please created without clobbering its notes.
 - Update `RELEASING.md` to document the new flow and the one-time repo setting it requires.
+- Because release-please builds the changelog from commit subjects, make the repo **squash-only** with the squash commit subject set to the PR title, and add a **PR-title linter** that requires Conventional Commit titles — so the changelog input is clean and user-readable by construction.
 
 ## Non-goals
 
@@ -28,4 +29,6 @@ Releases are fully manual today: hand-write a CHANGELOG entry, pick a version, t
 - `release-please-config.json`, `.release-please-manifest.json` — new (release-type `go`, seeded at 0.15.0)
 - `.goreleaser.yaml` — `release.mode: replace` → `append`
 - `RELEASING.md` — documents the new flow
+- `.github/workflows/pr-title-lint.yml` — requires Conventional Commit PR titles
+- Repo merge settings — squash-only; squash commit title = PR title, message = PR body
 - **One-time repo setting:** "Allow GitHub Actions to create and approve pull requests" must be enabled (Settings → Actions → General) so release-please can open its PR with `GITHUB_TOKEN`
