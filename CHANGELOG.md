@@ -2,6 +2,18 @@
 
 # Changelog
 
+## v0.15.0
+
+### Changed
+- **Renamed the project and binary from `dossier` to `speclio`.** speclio is a fork of [dossier](https://github.com/fselich/dossier) by fselich, maintained independently as it diverges. Install with `brew tap danshort/tap && brew install speclio`.
+
+### Added
+- Prebuilt **macOS** binaries (amd64 + arm64) alongside Linux in every release, distributed via a Homebrew tap.
+- `govulncheck` dependency scanning in CI; `RELEASING.md` documenting the release process.
+
+### Fixed
+- `$EDITOR` values with arguments (e.g. `code --wait`, `emacs -nw`) now launch correctly.
+
 ## v0.14.1
 
 ### Fixed

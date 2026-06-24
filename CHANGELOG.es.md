@@ -2,6 +2,18 @@
 
 # Changelog
 
+## v0.15.0
+
+### Cambiado
+- **Se renombró el proyecto y el binario de `dossier` a `speclio`.** speclio es un fork de [dossier](https://github.com/fselich/dossier) de fselich, mantenido de forma independiente a medida que diverge. Instálalo con `brew tap danshort/tap && brew install speclio`.
+
+### Añadido
+- Binarios precompilados para **macOS** (amd64 + arm64) junto a Linux en cada release, distribuidos vía un tap de Homebrew.
+- Escaneo de dependencias con `govulncheck` en CI; `RELEASING.md` documentando el proceso de release.
+
+### Arreglado
+- Los valores de `$EDITOR` con argumentos (p. ej. `code --wait`, `emacs -nw`) ahora se ejecutan correctamente.
+
 ## v0.14.1
 
 ### Arreglado
