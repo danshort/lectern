@@ -1,6 +1,6 @@
 # Releasing
 
-`dossier` is released with [GoReleaser](https://goreleaser.com/). Pushing a
+`speclio` is released with [GoReleaser](https://goreleaser.com/). Pushing a
 `vX.Y.Z` tag to `main` triggers `.github/workflows/release.yml`, which builds
 binaries for Linux and macOS (amd64 + arm64), publishes a GitHub Release with
 checksums, and updates the Homebrew tap.
@@ -11,7 +11,7 @@ These only need to be done once for the repository.
 
 1. **Create the Homebrew tap repo.** Create a public repo named
    `danshort/homebrew-tap`. GoReleaser commits the generated formula
-   (`Formula/dossier.rb`) there on every release. It does not need any contents
+   (`Formula/speclio.rb`) there on every release. It does not need any contents
    beyond what GoReleaser writes.
 
 2. **Create the tap token.** Generate a GitHub
@@ -20,10 +20,10 @@ These only need to be done once for the repository.
    and write** permission.
 
    > Why a separate token? The built-in `secrets.GITHUB_TOKEN` can only write to
-   > the repo the workflow runs in (`danshort/dossier`). Pushing the formula to
+   > the repo the workflow runs in (`danshort/speclio`). Pushing the formula to
    > a *different* repo (`homebrew-tap`) requires its own token.
 
-3. **Add the token as a secret.** In `danshort/dossier` →
+3. **Add the token as a secret.** In `danshort/speclio` →
    Settings → Secrets and variables → Actions, add a secret named
    `HOMEBREW_TAP_TOKEN` with the token value.
 
@@ -41,17 +41,17 @@ These only need to be done once for the repository.
 
 3. Watch the release workflow under the repo's **Actions** tab. On success it
    produces:
-   - a GitHub Release at `v0.11.0` with `dossier-<os>-<arch>.tar.gz` archives
+   - a GitHub Release at `v0.11.0` with `speclio-<os>-<arch>.tar.gz` archives
      and `checksums.txt`,
-   - an updated `Formula/dossier.rb` in `danshort/homebrew-tap`.
+   - an updated `Formula/speclio.rb` in `danshort/homebrew-tap`.
 
 4. Verify the install:
 
    ```bash
    brew update
    brew tap danshort/tap
-   brew install dossier   # or: brew upgrade dossier
-   dossier --version
+   brew install speclio   # or: brew upgrade speclio
+   speclio --version
    ```
 
 ## Testing the build without releasing
@@ -70,7 +70,7 @@ go run github.com/goreleaser/goreleaser/v2@latest check
 
 ## Versioning notes
 
-- The binary reports its version via `dossier --version`. The value is injected
+- The binary reports its version via `speclio --version`. The value is injected
   at build time through `-ldflags "-X main.version={{ .Version }}"` — do not
   hard-code it.
 - `release.mode: replace` means re-pushing an existing tag replaces that

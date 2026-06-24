@@ -5,7 +5,7 @@ import (
 
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
-	"github.com/danshort/dossier/internal/openspec"
+	"github.com/danshort/speclio/internal/openspec"
 )
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

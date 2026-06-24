@@ -1,13 +1,15 @@
 **[English](README.md)** | **Español**
 
-# dossier
+# speclio
 
 Interfaz de terminal controlada por teclado para leer y navegar artefactos de proyectos [OpenSpec](https://github.com/openspec) — propuestas, diseños, specs y tareas.
+
+> **speclio es un fork de [dossier](https://github.com/fselich/dossier) de [fselich](https://github.com/fselich).** Se renombró a medida que diverge y se mantiene de forma independiente. Todo el crédito de la herramienta original es del autor upstream; consulta [LICENSE](LICENSE).
 
 > Desarrollado con OpenSpec. Este repositorio contiene 12 archivos de spec de proyecto y más de 20 cambios archivados que documentan el historial completo de desarrollo de la herramienta.
 
 <p align="center">
-  <img src="docs/dossier.gif" alt="demo de dossier" />
+  <img src="docs/speclio.gif" alt="demo de speclio" />
 </p>
 
 ---
@@ -30,16 +32,16 @@ Interfaz de terminal controlada por teclado para leer y navegar artefactos de pr
 ```bash
 # Homebrew
 brew tap danshort/tap
-brew install dossier
+brew install speclio
 
 # Desde el código fuente
-git clone https://github.com/danshort/dossier
-cd dossier
-make build    # genera ./dossier
+git clone https://github.com/danshort/speclio
+cd speclio
+make build    # genera ./speclio
 make install  # instala mediante go install
 
 # Usando go install
-go install github.com/danshort/dossier/cmd/dossier@latest
+go install github.com/danshort/speclio/cmd/speclio@latest
 ```
 
 ---
@@ -49,13 +51,13 @@ go install github.com/danshort/dossier/cmd/dossier@latest
 Ejecutar desde la raíz de un proyecto OpenSpec:
 
 ```bash
-dossier
+speclio
 ```
 
 Ver un directorio de cambio concreto por ruta:
 
 ```bash
-dossier /ruta/a/openspec/changes/mi-cambio
+speclio /ruta/a/openspec/changes/mi-cambio
 ```
 
 ### Referencia de teclado
@@ -116,7 +118,7 @@ En modo foco de requisitos:
 
 ## Estructura de proyecto
 
-dossier espera un directorio `openspec/` en la raíz del proyecto:
+speclio espera un directorio `openspec/` en la raíz del proyecto:
 
 ```
 openspec/

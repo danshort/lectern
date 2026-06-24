@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
-	"github.com/danshort/dossier/internal/openspec"
+	"github.com/danshort/speclio/internal/openspec"
 )
 
 func (m *Model) mainViewContent() string {

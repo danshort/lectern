@@ -1,4 +1,4 @@
-module github.com/danshort/dossier
+module github.com/danshort/speclio
 
 go 1.25.8
 
