@@ -98,8 +98,18 @@ func (m *Model) loadViewportForSpec() tea.Cmd {
 
 	jumpTarget := m.specViewer.JumpTarget
 	ansiRe := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	renderInput := raw
+	if errs := openspec.ValidateSpec(raw); len(errs) > 0 {
+		var b strings.Builder
+		b.WriteString("> ⚠ **Validation errors**\n>\n")
+		for _, e := range errs {
+			b.WriteString("> - " + e + "\n")
+		}
+		b.WriteString("\n")
+		renderInput = b.String() + raw
+	}
 	return func() tea.Msg {
-		out, err := m.glamourRenderer.Render(raw)
+		out, err := m.glamourRenderer.Render(renderInput)
 		if err != nil {
 			return specRenderedMsg{content: raw}
 		}
