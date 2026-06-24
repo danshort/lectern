@@ -47,7 +47,10 @@ release:
   name_template: "v{{ .Version }}"
   draft: false
   prerelease: auto
-  mode: replace
+  # release-please creates the GitHub release (with changelog notes) before
+  # GoReleaser runs; append uploads the binaries + checksums onto it without
+  # clobbering those notes.
+  mode: append
 
 brews:
   -
