@@ -106,6 +106,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) dispatchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// The keyboard-help overlay is a transient layer over the current screen.
+	// While it is open, only the dismiss keys act; every other key is swallowed
+	// so the underlying screen stays inert.
+	if m.helpOpen {
+		switch msg.String() {
+		case "?", "esc", "q":
+			m.helpOpen = false
+		}
+		return m, nil
+	}
+	// `?` opens the overlay from any mode. The index filter input takes
+	// precedence so a `?` can still be typed into a filter query.
+	if msg.String() == "?" && !(m.mode == ModeIndex && m.index.FilterActive) {
+		m.helpOpen = true
+		return m, nil
+	}
+
 	switch m.mode {
 	case ModeNormal, ModeViewingArchive:
 		return m.updateViewer(msg)

@@ -191,26 +191,26 @@ func (m *Model) renderHelpBar() string {
 		if m.index.SortBySuffix {
 			sortHint = "s: sort by name"
 		}
-		text := "j/k: navigate  Enter: open  Space: expand  click: select  " + sortHint + "  i: info  Esc: quit"
+		text := "j/k: navigate  Enter: open  Space: expand  click: select  " + sortHint + "  i: info  ?: help  Esc: quit"
 		if m.index.FilterText != "" {
 			text += "  [/" + m.index.FilterText + "]"
 		}
 		return helpStyle.Render(text)
 	}
 	if m.mode == ModeViewingConfig {
-		return helpStyle.Render("j/k: scroll  i/Esc: back  q: quit")
+		return helpStyle.Render("j/k: scroll  i/Esc: back  ?: help  q: quit")
 	}
 	if m.mode == ModeViewingSpec {
 		if m.specViewer.FocusMode {
-			return helpStyle.Render("h/l: req anterior/siguiente  j/k: scroll  e: edit  Esc: index  q: quit")
+			return helpStyle.Render("h/l: req anterior/siguiente  j/k: scroll  e: edit  Esc: index  ?: help  q: quit")
 		}
-		return helpStyle.Render("j/k: scroll  e: edit  Esc: index  q: quit")
+		return helpStyle.Render("j/k: scroll  e: edit  Esc: index  ?: help  q: quit")
 	}
 	if m.mode == ModeViewingArchive {
-		return helpStyle.Render("1-4/Tab: artifact  j/k: scroll  a/Esc: index  q: quit")
+		return helpStyle.Render("1-4/Tab: artifact  j/k: scroll  a/Esc: index  ?: help  q: quit")
 	}
 	if m.tab == TabTasks {
-		return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  j/k: navigate  Space: toggle  e: edit  i: info  Esc: index  q: quit")
+		return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  j/k: navigate  Space: toggle  e: edit  i: info  ?: help  Esc: index  q: quit")
 	}
-	return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  j/k: scroll  e: edit  i: info  Esc: index  q: quit")
+	return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  j/k: scroll  e: edit  i: info  ?: help  Esc: index  q: quit")
 }
