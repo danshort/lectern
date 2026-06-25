@@ -41,6 +41,29 @@ entry you want, e.g. `feat: flag invalid specs with an error marker in the index
 A `PR Title` check (`.github/workflows/pr-title-lint.yml`) enforces the
 Conventional Commit format so a malformed title can't reach the changelog.
 
+### Richer entries: `BEGIN_COMMIT_OVERRIDE`
+
+When a PR's single title isn't enough — it does several things, or you want
+sharper wording than the title — put an override block **in the PR description**
+(works because the repo squash-merges):
+
+```
+BEGIN_COMMIT_OVERRIDE
+feat: flag invalid specs with an error marker in the index
+fix: archived Tasks tab no longer blanks on arrow keys
+END_COMMIT_OVERRIDE
+```
+
+On the next release run, release-please uses these lines **instead of** the PR
+title for the changelog. Verified behavior:
+
+- Each line is a separate, typed changelog entry (a PR can emit several bullets,
+  routed to Features / Bug Fixes by prefix).
+- **Only the subject line of each entry renders.** Paragraph prose underneath an
+  entry is dropped — release-please changelogs are one line per entry, not
+  multi-paragraph narrative. (If you ever need paragraph-level notes, that's a
+  different tool, e.g. Changesets.)
+
 ## One-time setup
 
 These only need to be done once for the repository.
