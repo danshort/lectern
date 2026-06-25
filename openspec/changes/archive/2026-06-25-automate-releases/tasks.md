@@ -22,4 +22,4 @@
 ## 5. Verification
 
 - [x] 5.1 `goreleaser check` (valid), `release-please-config.json`/manifest parse as JSON, `actionlint` clean on the workflows
-- [ ] 5.2 Post-merge: confirm release-please opens a `0.16.0` release PR; merging it produces a GitHub release with binaries and an updated tap formula
+- [x] 5.2 Post-merge: confirmed — release-please opened the `0.16.0` release PR; merging it produced the v0.16.0 GitHub release with all four platform tarballs + `checksums.txt` and updated the Homebrew tap formula
