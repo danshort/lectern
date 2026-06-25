@@ -5,8 +5,39 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/bubbles/v2/viewport"
 	"github.com/danshort/lectern/internal/openspec"
 )
+
+// An unreadable spec opened in the viewport must not show the structural
+// "Validation errors" banner — a read failure is not a structural one.
+func TestUnreadableSpecViewportSkipsValidation(t *testing.T) {
+	mk := func(content string, readErr error) Model {
+		m := Model{mode: ModeViewingSpec, width: 80, height: 24, vpReady: true, project: &openspec.Project{}}
+		m.projectSpecs = []openspec.ProjectSpec{{Name: "s", Content: content, ReadErr: readErr}}
+		m.vp = viewport.New(viewport.WithWidth(78), viewport.WithHeight(18))
+		return m
+	}
+	run := func(m Model) string {
+		cmd := m.loadViewportForSpec()
+		if cmd == nil {
+			return ""
+		}
+		if sr, ok := cmd().(specRenderedMsg); ok {
+			return sr.content
+		}
+		return ""
+	}
+
+	// Control: a readable but structurally-invalid spec shows the banner.
+	if got := run(mk("not a real spec", nil)); !strings.Contains(got, "Validation errors") {
+		t.Fatalf("control: expected validation banner for an invalid readable spec, got %q", got)
+	}
+	// Unreadable: ReadErr set ⇒ no banner.
+	if got := run(mk("⚠ couldn't read .../spec.md: boom", errors.New("boom"))); strings.Contains(got, "Validation errors") {
+		t.Errorf("unreadable spec should skip the validation banner, got %q", got)
+	}
+}
 
 func newIndexModel() Model {
 	m := Model{mode: ModeIndex, width: 80, project: &openspec.Project{}}

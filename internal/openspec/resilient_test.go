@@ -84,6 +84,38 @@ func TestLoadProjectSpecsResilient(t *testing.T) {
 	}
 }
 
+func TestLoadSpecsResilient(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a", "b"} {
+		if err := os.MkdirAll(filepath.Join(dir, name), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name, FileSpec), []byte("# "+name), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bad := filepath.Join(dir, "b", FileSpec)
+	l := NewLoader(errFS{failPath: bad, failErr: errors.New("EIO")})
+
+	agg, files := l.loadSpecs(dir)
+	if len(files) != 2 {
+		t.Fatalf("expected 2 NamedSpecs (one unreadable kept), got %d", len(files))
+	}
+	byName := map[string]NamedSpec{}
+	for _, f := range files {
+		byName[f.Name] = f
+	}
+	if byName["b"].ReadErr == nil || !strings.HasPrefix(byName["b"].Content, unreadablePrefix) {
+		t.Errorf("b should be unreadable with placeholder, got %+v", byName["b"])
+	}
+	if byName["a"].ReadErr != nil {
+		t.Errorf("a should load normally, got ReadErr=%v", byName["a"].ReadErr)
+	}
+	if !agg.Present || !strings.Contains(agg.Content, unreadablePrefix) {
+		t.Error("aggregate Specs artifact should be present and embed the placeholder")
+	}
+}
+
 func TestValidateChangeSkipsUnreadable(t *testing.T) {
 	boom := errors.New("permission denied")
 

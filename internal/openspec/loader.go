@@ -29,8 +29,9 @@ const (
 	FileConfig   = "config.yaml"
 	fileMeta     = ".openspec.yaml"
 
-	// reqPrefix / scenarioPrefix mark requirement and scenario headers. Matching
-	// uses HasPrefix + TrimSpace (so "### Requirement: Name" yields "Name").
+	// reqPrefix / scenarioPrefix mark requirement and scenario headers. They omit
+	// the trailing space; matching uses HasPrefix + TrimSpace (so a line like
+	// "### Requirement: Name" yields "Name").
 	reqPrefix      = "### Requirement:"
 	scenarioPrefix = "#### Scenario:"
 
@@ -270,10 +271,10 @@ func (l *Loader) LoadFromPath(path string) (*Project, error) {
 }
 
 func (l *Loader) ReloadChange(ch Change) Change {
-	ch.Proposal = l.loadFile(filepath.Join(ch.Path, "proposal.md"))
-	ch.Design = l.loadFile(filepath.Join(ch.Path, "design.md"))
-	ch.Tasks = l.loadFile(filepath.Join(ch.Path, "tasks.md"))
-	ch.Specs, ch.SpecFiles = l.loadSpecs(filepath.Join(ch.Path, "specs"))
+	ch.Proposal = l.loadFile(filepath.Join(ch.Path, FileProposal))
+	ch.Design = l.loadFile(filepath.Join(ch.Path, FileDesign))
+	ch.Tasks = l.loadFile(filepath.Join(ch.Path, FileTasks))
+	ch.Specs, ch.SpecFiles = l.loadSpecs(filepath.Join(ch.Path, DirSpecs))
 	return ch
 }
 
