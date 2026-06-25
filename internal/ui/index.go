@@ -86,6 +86,7 @@ func (m *Model) pollIndexMode() tea.Cmd {
 		m.errMsg = "error loading project specs: " + specErr.Error()
 	}
 	m.index.ExpandedSpecs = make(map[int]bool)
+	m.index.ExpandedArchives = make(map[int]bool)
 	m.buildIndexItems()
 	m.applyFilter()
 	if m.index.Cursor >= m.visibleItemCount() {
@@ -166,6 +167,7 @@ func (m *Model) enterIndex() {
 		m.errMsg = "error loading project specs: " + specErr.Error()
 	}
 	m.index.ExpandedSpecs = make(map[int]bool)
+	m.index.ExpandedArchives = make(map[int]bool)
 	m.buildIndexItems()
 	m.index.Cursor = 0
 	m.mode = ModeIndex
@@ -196,6 +198,13 @@ func (m *Model) matchesFilter(item indexItem, lowerQuery string) bool {
 	case indexKindArchived:
 		if item.idx < len(m.index.ArchiveChanges) {
 			return strings.Contains(strings.ToLower(m.index.ArchiveChanges[item.idx].Name), lowerQuery)
+		}
+	case indexKindArchivedArtifact:
+		if item.idx < len(m.index.ArchiveChanges) {
+			if strings.Contains(strings.ToLower(m.index.ArchiveChanges[item.idx].Name), lowerQuery) {
+				return true
+			}
+			return strings.Contains(strings.ToLower(tabLabels[Tab(item.reqIdx)]), lowerQuery)
 		}
 	case indexKindSpec:
 		if item.idx < len(m.projectSpecs) {
@@ -270,7 +279,39 @@ func (m *Model) buildIndexItems() {
 	}
 	for i := range m.index.ArchiveChanges {
 		m.index.Items = append(m.index.Items, indexItem{kind: indexKindArchived, idx: i})
+		if m.index.ExpandedArchives[i] {
+			for _, t := range archiveArtifactTabs(m.index.ArchiveChanges[i]) {
+				m.index.Items = append(m.index.Items, indexItem{kind: indexKindArchivedArtifact, idx: i, reqIdx: int(t)})
+			}
+		}
 	}
+}
+
+// toggleExpansion rebuilds the index after an expand/collapse and re-anchors
+// the cursor on the toggled parent row (matched by kind and idx).
+func (m *Model) toggleExpansion(kind indexItemKind, idx int) {
+	m.buildIndexItems()
+	m.applyFilter()
+	m.index.Cursor = 0
+	if m.index.FilterIndices != nil {
+		for i, ri := range m.index.FilterIndices {
+			if m.index.Items[ri].kind == kind && m.index.Items[ri].idx == idx {
+				m.index.Cursor = i
+				break
+			}
+		}
+	} else {
+		for i, it := range m.index.Items {
+			if it.kind == kind && it.idx == idx {
+				m.index.Cursor = i
+				break
+			}
+		}
+	}
+	if m.index.Cursor >= m.visibleItemCount() {
+		m.index.Cursor = max(0, m.visibleItemCount()-1)
+	}
+	m.refreshIndexViewport()
 }
 
 func (m *Model) refreshIndexViewport() {
@@ -429,11 +470,24 @@ func (m *Model) renderIndexContent() (string, int) {
 				continue
 			}
 			anyVisible = true
-			ch := m.index.ArchiveChanges[m.index.Items[i].idx]
+			item := m.index.Items[i]
 			cursor := m.isCursorAt(i)
 			if cursor {
 				cursorLine = line
 			}
+			if item.kind == indexKindArchivedArtifact {
+				label := tabLabels[Tab(item.reqIdx)]
+				artMark := "    "
+				name := taskPendingStyle.Render(label)
+				if cursor {
+					artMark = "  " + progressDoneStyle.Render("▶") + " "
+					name = indexActiveStyle.Render(label)
+				}
+				sb.WriteString(artMark + name + "\n")
+				line++
+				continue
+			}
+			ch := m.index.ArchiveChanges[item.idx]
 			// Archived changes are frozen history; validation markers there
 			// would be noise the user can't act on, so they are not validated.
 			sb.WriteString(m.renderArchivedItem(ch, cursor, maxName) + "\n")
@@ -729,6 +783,12 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				m.mode = ModeViewingSpec
 				return m.commitStateChange()
 			}
+			if item.kind == indexKindArchivedArtifact {
+				m.index.ArchiveCursor = item.idx
+				m.tab = Tab(item.reqIdx)
+				m.mode = ModeViewingArchive
+				return m.commitStateChange()
+			}
 			m.index.ArchiveCursor = item.idx
 			m.tab = firstAvailableTab(m.index.ArchiveChanges[item.idx])
 			m.mode = ModeViewingArchive
@@ -738,31 +798,13 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "space":
 		if m.visibleItemCount() > 0 {
 			item := m.index.Items[m.visibleItemIdx(m.index.Cursor)]
-			if item.kind == indexKindSpec {
-				specIdx := item.idx
-				m.index.ExpandedSpecs[specIdx] = !m.index.ExpandedSpecs[specIdx]
-				m.buildIndexItems()
-				m.applyFilter()
-				m.index.Cursor = 0
-				if m.index.FilterIndices != nil {
-					for i, idx := range m.index.FilterIndices {
-						if m.index.Items[idx].kind == indexKindSpec && m.index.Items[idx].idx == specIdx {
-							m.index.Cursor = i
-							break
-						}
-					}
-				} else {
-					for i, it := range m.index.Items {
-						if it.kind == indexKindSpec && it.idx == specIdx {
-							m.index.Cursor = i
-							break
-						}
-					}
-				}
-				if m.index.Cursor >= m.visibleItemCount() {
-					m.index.Cursor = max(0, m.visibleItemCount()-1)
-				}
-				m.refreshIndexViewport()
+			switch item.kind {
+			case indexKindSpec:
+				m.index.ExpandedSpecs[item.idx] = !m.index.ExpandedSpecs[item.idx]
+				m.toggleExpansion(indexKindSpec, item.idx)
+			case indexKindArchived:
+				m.index.ExpandedArchives[item.idx] = !m.index.ExpandedArchives[item.idx]
+				m.toggleExpansion(indexKindArchived, item.idx)
 			}
 		}
 

@@ -134,6 +134,13 @@ func (m Model) clickIndexItem(idx int) (tea.Model, tea.Cmd) {
 		m.vp.SetHeight(m.contentHeight())
 		return m, m.loadViewport()
 
+	case indexKindArchivedArtifact:
+		m.index.ArchiveCursor = item.idx
+		m.tab = Tab(item.reqIdx)
+		m.mode = ModeViewingArchive
+		m.vp.SetHeight(m.contentHeight())
+		return m, m.loadViewport()
+
 	case indexKindSpec:
 		m.index.ExpandedSpecs[item.idx] = !m.index.ExpandedSpecs[item.idx]
 		m.buildIndexItems()
