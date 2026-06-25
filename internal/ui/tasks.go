@@ -92,21 +92,18 @@ func extractOpeningEscape(style lipgloss.Style) string {
 }
 
 func inlineMarkdown(s, restore string, done bool) string {
+	codeStyle := cyanStyle
 	if done {
-		s = rxCode.ReplaceAllStringFunc(s, func(m string) string {
-			return doneCodeStyle.Render(rxCode.FindStringSubmatch(m)[1]) + restore
-		})
-		s = rxBold.ReplaceAllStringFunc(s, func(m string) string {
-			return boldStyle.Render(rxBold.FindStringSubmatch(m)[1]) + restore
-		})
-	} else {
-		s = rxCode.ReplaceAllStringFunc(s, func(m string) string {
-			return cyanStyle.Render(rxCode.FindStringSubmatch(m)[1]) + restore
-		})
-		s = rxBold.ReplaceAllStringFunc(s, func(m string) string {
-			return boldStyle.Render(rxBold.FindStringSubmatch(m)[1]) + restore
-		})
+		codeStyle = doneCodeStyle
 	}
+	// The matched spans carry single-char (`) / two-char (**) delimiters, so the
+	// inner text is a plain slice — no need to re-run the regex per match.
+	s = rxCode.ReplaceAllStringFunc(s, func(m string) string {
+		return codeStyle.Render(m[1:len(m)-1]) + restore
+	})
+	s = rxBold.ReplaceAllStringFunc(s, func(m string) string {
+		return boldStyle.Render(m[2:len(m)-2]) + restore
+	})
 	return s
 }
 

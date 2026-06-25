@@ -9,6 +9,10 @@ import (
 	"github.com/danshort/lectern/internal/openspec"
 )
 
+// ansiRe matches ANSI SGR escape sequences, used to strip styling before
+// substring-matching rendered output.
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
 func (m *Model) loadViewport() tea.Cmd {
 	if !m.vpReady {
 		return nil
@@ -110,7 +114,6 @@ func (m *Model) loadViewportForSpec() tea.Cmd {
 	}
 
 	jumpTarget := m.specViewer.JumpTarget
-	ansiRe := regexp.MustCompile(`\x1b\[[0-9;]*m`)
 	renderInput := raw
 	if errs := openspec.ValidateSpec(raw); len(errs) > 0 {
 		var b strings.Builder
