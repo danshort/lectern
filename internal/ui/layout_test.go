@@ -103,14 +103,24 @@ func assertIndexRoundTrip(t *testing.T, m *Model) {
 	m.refreshIndexViewport()
 
 	content, _ := m.renderIndexContent()
-	n := lipgloss.Height(content)
+	plainLines := strings.Split(ansiRe.ReplaceAllString(content, ""), "\n")
+	n := len(plainLines)
 	seen := map[int]int{}
 	for line := 0; line < n; line++ {
-		if idx, ok := m.indexItemAtContentLine(line); ok {
-			if idx < 0 || idx >= len(m.index.Items) {
-				t.Fatalf("resolved out-of-range item idx %d (have %d items)", idx, len(m.index.Items))
-			}
-			seen[idx]++
+		idx, ok := m.indexItemAtContentLine(line)
+		if !ok {
+			continue
+		}
+		if idx < 0 || idx >= len(m.index.Items) {
+			t.Fatalf("resolved out-of-range item idx %d (have %d items)", idx, len(m.index.Items))
+		}
+		seen[idx]++
+		// Positional oracle: the resolved line must actually render that item's
+		// text. This catches an off-by-one capture that the cardinality check
+		// below would miss (an item shifted onto an adjacent blank/chrome line
+		// still resolves exactly once).
+		if id := itemIdentifier(m, idx); !strings.Contains(plainLines[line], id) {
+			t.Errorf("line %d resolves to item %d but renders %q, expected to contain %q", line, idx, plainLines[line], id)
 		}
 	}
 	for i := range m.index.Items {
@@ -122,6 +132,25 @@ func assertIndexRoundTrip(t *testing.T, m *Model) {
 			t.Errorf("hidden item %d resolved %d times, want 0", i, seen[i])
 		}
 	}
+}
+
+// itemIdentifier returns a substring uniquely present on the given index item's
+// rendered line, used by the positional oracle in assertIndexRoundTrip.
+func itemIdentifier(m *Model, idx int) string {
+	it := m.index.Items[idx]
+	switch it.kind {
+	case indexKindActive:
+		return m.project.Changes[it.idx].Name
+	case indexKindSpec:
+		return m.projectSpecs[it.idx].Name
+	case indexKindRequirement:
+		return m.projectSpecs[it.idx].RequirementNames[it.reqIdx]
+	case indexKindArchived:
+		return m.index.ArchiveChanges[it.idx].Name
+	case indexKindArchivedArtifact:
+		return tabLabels[Tab(it.reqIdx)]
+	}
+	return ""
 }
 
 // TestIndexHitTestRoundTrip is the seatbelt for coupling #3.

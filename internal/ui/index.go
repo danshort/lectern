@@ -345,6 +345,7 @@ func (m *Model) renderIndexContent() (string, int) {
 	var sb strings.Builder
 	line := 0
 	cursorLine := 0
+	lineMap := map[int]int{}
 
 	activeEnd := 0
 	for activeEnd < len(m.index.Items) && m.index.Items[activeEnd].kind == indexKindActive {
@@ -380,6 +381,7 @@ func (m *Model) renderIndexContent() (string, int) {
 				cursorLine = line
 			}
 			sb.WriteString(m.renderActiveItem(ch, cursor, contentWidth) + validationMarker(openspec.ValidateChange(ch)) + "\n")
+			lineMap[line] = i
 			line++
 		}
 		if !anyVisible {
@@ -436,6 +438,7 @@ func (m *Model) renderIndexContent() (string, int) {
 					name = indexActiveStyle.Render(ps.Name)
 				}
 				sb.WriteString(cursorMark + name + pad + "  " + label + validationMarker(openspec.ValidateSpec(ps.Content)) + "\n")
+				lineMap[line] = i
 				line++
 			} else {
 				reqMark := "    "
@@ -445,6 +448,7 @@ func (m *Model) renderIndexContent() (string, int) {
 					rName = indexActiveStyle.Render(m.projectSpecs[item.idx].RequirementNames[item.reqIdx])
 				}
 				sb.WriteString(reqMark + rName + "\n")
+				lineMap[line] = i
 				line++
 			}
 		}
@@ -493,6 +497,7 @@ func (m *Model) renderIndexContent() (string, int) {
 					name = indexActiveStyle.Render(label)
 				}
 				sb.WriteString(artMark + name + "\n")
+				lineMap[line] = i
 				line++
 				continue
 			}
@@ -500,6 +505,7 @@ func (m *Model) renderIndexContent() (string, int) {
 			// Archived changes are frozen history; validation markers there
 			// would be noise the user can't act on, so they are not validated.
 			sb.WriteString(m.renderArchivedItem(ch, cursor, maxName) + "\n")
+			lineMap[line] = i
 			line++
 		}
 		if !anyVisible {
@@ -508,6 +514,7 @@ func (m *Model) renderIndexContent() (string, int) {
 		}
 	}
 
+	m.index.lineMap = lineMap
 	return sb.String(), cursorLine
 }
 
@@ -581,74 +588,14 @@ func (m *Model) renderArchivedItem(ch openspec.Change, cursor bool, maxName int)
 	return cursorMark + name + "  " + date
 }
 
+// indexItemAtContentLine resolves a content line to the raw index item rendered
+// on it. It is a lookup into the map captured by renderIndexContent (run via
+// refreshIndexViewport on every index state change), so render position and
+// hit-test agree by construction. Returns false for non-item lines, or before
+// the first render when the map is empty.
 func (m *Model) indexItemAtContentLine(contentLine int) (int, bool) {
-	line := 0
-
-	line += 3
-
-	activeEnd := 0
-	for activeEnd < len(m.index.Items) && m.index.Items[activeEnd].kind == indexKindActive {
-		activeEnd++
-	}
-
-	if activeEnd > 0 {
-		for itemIdx := range activeEnd {
-			if !m.isItemVisible(itemIdx) {
-				continue
-			}
-			if line == contentLine {
-				return itemIdx, true
-			}
-			line++
-		}
-	}
-	if activeEnd == 0 {
-		line++
-	}
-
-	line++
-
-	line += 2
-
-	specEnd := activeEnd
-	for specEnd < len(m.index.Items) && (m.index.Items[specEnd].kind == indexKindSpec || m.index.Items[specEnd].kind == indexKindRequirement) {
-		specEnd++
-	}
-
-	if specEnd > activeEnd {
-		for itemIdx := activeEnd; itemIdx < specEnd; itemIdx++ {
-			if !m.isItemVisible(itemIdx) {
-				continue
-			}
-			if line == contentLine {
-				return itemIdx, true
-			}
-			line++
-		}
-	}
-	if specEnd == activeEnd {
-		line++
-	}
-
-	line++
-
-	line += 2
-
-	if specEnd >= len(m.index.Items) {
-		line++
-	}
-
-	for itemIdx := specEnd; itemIdx < len(m.index.Items); itemIdx++ {
-		if !m.isItemVisible(itemIdx) {
-			continue
-		}
-		if line == contentLine {
-			return itemIdx, true
-		}
-		line++
-	}
-
-	return 0, false
+	idx, ok := m.index.lineMap[contentLine]
+	return idx, ok
 }
 
 func taskCounts(ch openspec.Change) (int, int) {

@@ -72,6 +72,11 @@ type indexState struct {
 	FilterActive   bool
 	FilterIndices  []int
 	PrevFilterText string
+
+	// lineMap maps a rendered content line to the raw index item on it,
+	// captured by renderIndexContent. indexItemAtContentLine is a lookup into
+	// it, so click hit-testing can't drift from what was rendered.
+	lineMap map[int]int
 }
 
 // worktreeEntry pairs a discovered git worktree with its loaded active changes.
