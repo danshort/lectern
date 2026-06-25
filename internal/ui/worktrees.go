@@ -20,7 +20,7 @@ func (m *Model) enterWorktrees() {
 	if err != nil {
 		m.worktrees.Available = false
 		m.worktrees.Message = "Worktrees unavailable: git is not on PATH or this is not a git working tree."
-		m.mode = ModeWorktrees
+		m.setMode(ModeWorktrees)
 		m.vp.SetHeight(m.contentHeight())
 		m.refreshWorktreesViewport()
 		return
@@ -42,7 +42,7 @@ func (m *Model) enterWorktrees() {
 	m.worktrees.Entries = entries
 	m.buildWorktreeItems()
 	m.worktrees.Cursor = 0
-	m.mode = ModeWorktrees
+	m.setMode(ModeWorktrees)
 	m.vp.SetHeight(m.contentHeight())
 	m.refreshWorktreesViewport()
 }
@@ -208,10 +208,10 @@ func (m Model) openWorktreeChange() (tea.Model, tea.Cmd) {
 	m.worktreeViewChange = ch
 	m.viewingWorktreeChange = true
 	m.renderCache = make(map[Tab]string)
-	m.tab = firstAvailableTab(ch)
-	m.specIdx = 0
+	m.viewer.tab = firstAvailableTab(ch)
+	m.viewer.specIdx = 0
 	m.prevMode = ModeWorktrees
-	m.mode = ModeViewingArchive
+	m.setMode(ModeViewingArchive)
 	return m.commitStateChange()
 }
 
@@ -247,19 +247,19 @@ func (m *Model) pollWorktreeChange() tea.Cmd {
 	dirty := false
 	if fresh.Proposal.Content != m.worktreeViewChange.Proposal.Content {
 		delete(m.renderCache, TabProposal)
-		dirty = dirty || m.tab == TabProposal
+		dirty = dirty || m.viewer.tab == TabProposal
 	}
 	if fresh.Design.Content != m.worktreeViewChange.Design.Content {
 		delete(m.renderCache, TabDesign)
-		dirty = dirty || m.tab == TabDesign
+		dirty = dirty || m.viewer.tab == TabDesign
 	}
 	if fresh.Specs.Content != m.worktreeViewChange.Specs.Content {
 		delete(m.renderCache, TabSpecs)
-		dirty = dirty || m.tab == TabSpecs
+		dirty = dirty || m.viewer.tab == TabSpecs
 	}
 	if fresh.Tasks.Content != m.worktreeViewChange.Tasks.Content {
 		delete(m.renderCache, TabTasks)
-		dirty = dirty || m.tab == TabTasks
+		dirty = dirty || m.viewer.tab == TabTasks
 	}
 	m.worktreeViewChange = fresh
 	if dirty {

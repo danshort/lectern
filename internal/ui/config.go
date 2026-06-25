@@ -6,7 +6,7 @@ func (m Model) updateConfig(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 
 	case "q", "ctrl+c", "i", "esc":
-		m.mode = m.prevMode
+		m.setMode(m.prevMode)
 		return m.commitStateChange()
 
 	case "j", "down":

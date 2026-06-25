@@ -33,13 +33,13 @@ func TestViewHeightInvariant(t *testing.T) {
 	modes := map[string]func() Model{
 		"normal": func() Model {
 			m := Model{mode: ModeNormal, project: &openspec.Project{Changes: []openspec.Change{change}}, renderCache: map[Tab]string{}}
-			m.tab = TabProposal
+			m.viewer.tab = TabProposal
 			return m
 		},
 		"archive": func() Model {
 			m := Model{mode: ModeViewingArchive, project: &openspec.Project{}, renderCache: map[Tab]string{}}
 			m.index.ArchiveChanges = []openspec.Change{change}
-			m.tab = TabProposal
+			m.viewer.tab = TabProposal
 			return m
 		},
 		"index": func() Model {
@@ -222,7 +222,7 @@ func TestTabHitTestRoundTrip(t *testing.T) {
 		}}},
 		renderCache: map[Tab]string{},
 	}
-	m.tab = TabProposal
+	m.viewer.tab = TabProposal
 	m.vp = viewport.New(viewport.WithWidth(78), viewport.WithHeight(18))
 
 	plain := ansiRe.ReplaceAllString(m.renderTabBar(), "")
@@ -234,7 +234,7 @@ func TestTabHitTestRoundTrip(t *testing.T) {
 		}
 		screenX := 1 + col // +1 for the left │ border column
 		res, _ := m.handleMouseClick(tea.MouseClickMsg{Button: tea.MouseLeft, X: screenX, Y: tabBarRow})
-		if got := res.(Model).tab; got != tab {
+		if got := res.(Model).viewer.tab; got != tab {
 			t.Errorf("click on %q (x=%d) selected tab %d, want %d", tabLabels[tab], screenX, got, tab)
 		}
 	}
@@ -254,7 +254,7 @@ func TestTabRangesMatchRenderedWidths(t *testing.T) {
 			Tasks:    openspec.Artifact{Present: true},
 		}}},
 	}
-	m.tab = TabProposal
+	m.viewer.tab = TabProposal
 
 	ranges := m.tabRanges()
 	wantStart := 1
