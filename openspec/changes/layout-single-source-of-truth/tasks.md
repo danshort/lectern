@@ -20,11 +20,11 @@
 
 ## 4. Index line→item map (PR4, on PR3)
 
-- [ ] 4.1 Have `renderIndexContent` emit a line→item map (capturing the `line` it already tracks per item) and store it on `Model` via the existing `refreshIndexViewport` path.
-- [ ] 4.2 Rewrite `indexItemAtContentLine` as a bounds-checked lookup into the emitted map; delete the hand-synchronized second walk.
-- [ ] 4.3 Confirm the round-trip test (1.2) passes with no edits to its body — it already renders via `refreshIndexViewport` before hit-testing, so PR4 introduces the map without touching test code (preserving the seatbelt). Verify YOffset composition and stale/empty-map safety (lookup returns not-found, never panics); `gofmt`/`vet`/`go test ./...` clean.
+- [x] 4.1 Have `renderIndexContent` emit a line→item map (capturing the `line` it already tracks per item) and store it on `Model` via the existing `refreshIndexViewport` path.
+- [x] 4.2 Rewrite `indexItemAtContentLine` as a bounds-checked lookup into the emitted map; delete the hand-synchronized second walk.
+- [x] 4.3 Confirm the round-trip test (1.2) passes with no edits to its body — it already renders via `refreshIndexViewport` before hit-testing, so PR4 introduces the map without touching test code (preserving the seatbelt). Verify YOffset composition and stale/empty-map safety (lookup returns not-found, never panics); `gofmt`/`vet`/`go test ./...` clean.
 
 ## 5. Verify and validate
 
-- [ ] 5.1 Manual click sweep: launch the TUI at 2–3 terminal sizes, click each tab and several index rows (including expanded/filtered), resize, and confirm no clipping or mis-targeting.
-- [ ] 5.2 Run `openspec validate layout-single-source-of-truth` and resolve any issues.
+- [ ] 5.1 (deferred to a human — needs a live terminal) Manual click sweep: launch the TUI at 2–3 terminal sizes, click each tab and several index rows (including expanded/filtered), resize, and confirm no clipping or mis-targeting.
+- [x] 5.2 Run `openspec validate layout-single-source-of-truth` and resolve any issues.
