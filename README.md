@@ -14,7 +14,7 @@ A keyboard-driven terminal UI for reading and navigating [OpenSpec](https://gith
 
 > **lectern is a fork of [dossier](https://github.com/fselich/dossier) by [fselich](https://github.com/fselich).** It was renamed as it diverges and is maintained independently. All credit for the original tool goes to the upstream author; see [LICENSE](LICENSE).
 
-> Built with OpenSpec. This repository contains 12 project-level spec files and 20+ archived changes that document the complete development history of the tool.
+> Built with OpenSpec. This repository contains all project-level spec files and archived changes that document the complete development history of the tool.
 
 <p align="center">
   <img src="docs/lectern.gif" alt="lectern demo" />
