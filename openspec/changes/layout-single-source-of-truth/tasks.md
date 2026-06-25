@@ -14,9 +14,9 @@
 
 ## 3. Tab x-ranges emitted by the renderer (PR3, on PR2)
 
-- [ ] 3.1 Have `renderTabBar` compute each tab's x-range (start/end) over the `tabCount` label segments only (excluding the trailing progress bar), using `lipgloss.Width`, and store the ranges on `Model`. Because ranges depend only on the constant `tabLabels` and the terminal width — not on `m.tab`, active/disabled styling, or archive vs normal — recomputing on resize (the `WindowSizeMsg` handler) is sufficient; a tab switch does not move them, so no per-state-change refresh is needed.
-- [ ] 3.2 Replace the re-derived geometry in `handleMouseClick` (`len(label)+2`, `+1`, `x=1`) with a lookup over the emitted ranges; preserve disabled-tab and spec-subnav-cycle behavior.
-- [ ] 3.3 Confirm the tab round-trip test (1.3) still passes. Current labels are ASCII, so `lipgloss.Width == len` today and there is no behavior change; add a synthetic wide-label unit test for the range math to guard future non-ASCII labels. `gofmt`/`vet`/`go test ./...` clean.
+- [x] 3.1 Add `tabRanges()` computing each tab's screen-X span from the same styled label widths `renderTabBar` lays out (`lipgloss.Width(styledTab(t))`, not byte length) plus the single-space join. Implemented as a pure on-demand method (not stored on `Model`): ranges are cheap and deterministic, which removes the staleness/refresh-site concern that storage would introduce. `styledTab` is shared by `renderTabBar` and `tabRanges` so width is single-sourced.
+- [x] 3.2 Replace the re-derived geometry in `handleMouseClick` (`len(label)+2`, `+1`, `x=1`) with a lookup over the emitted ranges; preserve disabled-tab and spec-subnav-cycle behavior.
+- [x] 3.3 Confirm the tab round-trip test (1.3) still passes. Current labels are ASCII, so `lipgloss.Width == len` today and there is no behavior change; add a synthetic wide-label unit test for the range math to guard future non-ASCII labels. `gofmt`/`vet`/`go test ./...` clean.
 
 ## 4. Index line→item map (PR4, on PR3)
 

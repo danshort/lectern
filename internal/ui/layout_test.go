@@ -210,3 +210,37 @@ func TestTabHitTestRoundTrip(t *testing.T) {
 		}
 	}
 }
+
+// TestTabRangesMatchRenderedWidths pins the range arithmetic: spans start at
+// column 1, match each tab's rendered (lipgloss.Width) span, and are separated
+// by the single-space join.
+func TestTabRangesMatchRenderedWidths(t *testing.T) {
+	m := Model{
+		mode: ModeNormal,
+		project: &openspec.Project{Changes: []openspec.Change{{
+			Name:     "feat",
+			Proposal: openspec.Artifact{Present: true},
+			Design:   openspec.Artifact{Present: true},
+			Specs:    openspec.Artifact{Present: true},
+			Tasks:    openspec.Artifact{Present: true},
+		}}},
+	}
+	m.tab = TabProposal
+
+	ranges := m.tabRanges()
+	wantStart := 1
+	for tab := Tab(0); tab < tabCount; tab++ {
+		w := lipgloss.Width(m.styledTab(tab))
+		if ranges[tab].start != wantStart || ranges[tab].end != wantStart+w-1 {
+			t.Errorf("tab %d range = {%d,%d}, want {%d,%d}", tab, ranges[tab].start, ranges[tab].end, wantStart, wantStart+w-1)
+		}
+		wantStart = ranges[tab].end + 2 // end + 1 (last col) + 1 (single-space join)
+	}
+
+	// The reason tabRanges measures with lipgloss.Width rather than byte length:
+	// for a wide glyph the two differ, and a len-based layout would mis-place
+	// every tab after a non-ASCII label.
+	if lipgloss.Width("両") == len("両") {
+		t.Errorf("expected display width (%d) to differ from byte length (%d) for a wide rune", lipgloss.Width("両"), len("両"))
+	}
+}

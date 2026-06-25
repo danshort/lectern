@@ -157,18 +157,43 @@ func (m *Model) renderHeader() string {
 	)
 }
 
+// styledTab renders a single tab label with its mode-appropriate style. Every
+// style shares Padding(0, 1), so a tab's rendered width is the same regardless
+// of active/disabled state — which is why tabRanges is stable.
+func (m *Model) styledTab(t Tab) string {
+	label := tabLabels[t]
+	switch {
+	case t == m.tab:
+		return tabActiveStyle.Render(label)
+	case !m.tabAvailable(t):
+		return tabDisabledStyle.Render(label)
+	default:
+		return tabInactiveStyle.Render(label)
+	}
+}
+
+// tabRange is the inclusive screen-X span of a tab in the tab bar.
+type tabRange struct{ start, end int }
+
+// tabRanges returns each tab's screen-X span, derived from the same styled
+// label widths renderTabBar lays out (measured with lipgloss.Width, not byte
+// length) and the single-space join — so hit-testing cannot drift from the
+// rendered tab bar. Computed on demand: cheap and width-independent.
+func (m *Model) tabRanges() [tabCount]tabRange {
+	var ranges [tabCount]tabRange
+	x := 1 // first column past the left │ border
+	for t := Tab(0); t < tabCount; t++ {
+		w := lipgloss.Width(m.styledTab(t))
+		ranges[t] = tabRange{start: x, end: x + w - 1}
+		x += w + 1 // +1 for the single-space join between tabs
+	}
+	return ranges
+}
+
 func (m *Model) renderTabBar() string {
 	parts := make([]string, 0, tabCount)
 	for t := Tab(0); t < tabCount; t++ {
-		label := tabLabels[t]
-		switch {
-		case t == m.tab:
-			parts = append(parts, tabActiveStyle.Render(label))
-		case !m.tabAvailable(t):
-			parts = append(parts, tabDisabledStyle.Render(label))
-		default:
-			parts = append(parts, tabInactiveStyle.Render(label))
-		}
+		parts = append(parts, m.styledTab(t))
 	}
 	tabs := strings.Join(parts, " ")
 
