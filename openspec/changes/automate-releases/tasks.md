@@ -13,7 +13,13 @@
 
 - [x] 3.1 Update `RELEASING.md` to document the release-please flow and the one-time "Allow GitHub Actions to create and approve pull requests" repo setting
 
-## 4. Verification
+## 4. Changelog input quality
 
-- [x] 4.1 `goreleaser check` (valid), `release-please-config.json`/manifest parse as JSON, `actionlint` clean on the workflow
-- [ ] 4.2 Post-merge: confirm release-please opens a `0.16.0` release PR; merging it produces a GitHub release with binaries and an updated tap formula
+- [x] 4.1 Set the repo to squash-only (disable merge & rebase); squash commit title = PR title, message = PR body
+- [x] 4.2 Add `.github/workflows/pr-title-lint.yml` requiring Conventional Commit PR titles
+- [ ] 4.3 Add the PR-title check as a required status check in branch protection (manual, maintainer)
+
+## 5. Verification
+
+- [x] 5.1 `goreleaser check` (valid), `release-please-config.json`/manifest parse as JSON, `actionlint` clean on the workflows
+- [ ] 5.2 Post-merge: confirm release-please opens a `0.16.0` release PR; merging it produces a GitHub release with binaries and an updated tap formula

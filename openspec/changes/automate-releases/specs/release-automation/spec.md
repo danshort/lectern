@@ -32,3 +32,14 @@ When a release is created, the pipeline SHALL build binaries for the supported p
 #### Scenario: Release notes preserved
 - **WHEN** GoReleaser uploads binaries to the release created by the automation
 - **THEN** the changelog notes already on the release are retained (binaries are appended, not replaced)
+
+### Requirement: Changelog input is controlled via squash merge and conventional PR titles
+Because the changelog is generated from commit subjects on the default branch, the repository SHALL squash-merge pull requests so each merged PR contributes exactly one commit whose subject is the PR title. PR titles SHALL be validated as Conventional Commits by a required check so that only well-formed, user-readable titles reach the changelog.
+
+#### Scenario: A merged PR yields one changelog-ready commit
+- **WHEN** a pull request is merged
+- **THEN** it produces a single squash commit whose subject is the PR title
+
+#### Scenario: A non-conventional PR title is rejected
+- **WHEN** a pull request's title is not a valid Conventional Commit (e.g. missing a `type:` prefix)
+- **THEN** the PR-title check fails, signalling the title must be fixed before merge
