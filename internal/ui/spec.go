@@ -59,6 +59,11 @@ func (m Model) updateSpec(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 				return m, m.loadViewport()
 			}
 		}
+
+	case "e":
+		if path := m.currentSpecPath(); path != "" {
+			return m, m.openInEditor(path)
+		}
 	}
 	return m, nil
 }

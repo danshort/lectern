@@ -963,6 +963,169 @@ func TestIndexFilteredNavigation(t *testing.T) {
 	})
 }
 
+func TestCurrentSpecPath(t *testing.T) {
+	m := &Model{
+		root: "/proj",
+		projectSpecs: []openspec.ProjectSpec{
+			{Name: "auth"},
+			{Name: "export"},
+		},
+	}
+
+	t.Run("valid cursor returns spec.md path", func(t *testing.T) {
+		m.specViewer.Cursor = 1
+		want := filepath.Join("/proj", "openspec", "specs", "export", "spec.md")
+		if got := m.currentSpecPath(); got != want {
+			t.Errorf("expected %q, got %q", want, got)
+		}
+	})
+
+	t.Run("cursor past end returns empty", func(t *testing.T) {
+		m.specViewer.Cursor = 5
+		if got := m.currentSpecPath(); got != "" {
+			t.Errorf("expected empty path for out-of-range cursor, got %q", got)
+		}
+	})
+
+	t.Run("negative cursor returns empty", func(t *testing.T) {
+		m.specViewer.Cursor = -1
+		if got := m.currentSpecPath(); got != "" {
+			t.Errorf("expected empty path for negative cursor, got %q", got)
+		}
+	})
+}
+
+func TestSpecEditKeyLaunchesEditor(t *testing.T) {
+	newModel := func() Model {
+		return Model{
+			mode:         ModeViewingSpec,
+			root:         "/proj",
+			projectSpecs: []openspec.ProjectSpec{{Name: "auth"}},
+		}
+	}
+
+	t.Run("e returns a command when a spec is viewed", func(t *testing.T) {
+		t.Setenv("EDITOR", "vi")
+		m := newModel()
+		_, cmd := m.dispatchKey(tea.KeyPressMsg{Text: "e"})
+		if cmd == nil {
+			t.Error("expected non-nil command when pressing e on a spec")
+		}
+	})
+
+	t.Run("e with EDITOR unset still returns a command (vi fallback)", func(t *testing.T) {
+		t.Setenv("EDITOR", "")
+		m := newModel()
+		_, cmd := m.dispatchKey(tea.KeyPressMsg{Text: "e"})
+		if cmd == nil {
+			t.Error("expected non-nil command with vi fallback when EDITOR unset")
+		}
+	})
+
+	t.Run("e returns nil command when no spec is available", func(t *testing.T) {
+		m := Model{mode: ModeViewingSpec, root: "/proj"} // no projectSpecs
+		_, cmd := m.dispatchKey(tea.KeyPressMsg{Text: "e"})
+		if cmd != nil {
+			t.Error("expected nil command when no spec is available")
+		}
+	})
+
+	t.Run("e in focus mode opens the same spec file", func(t *testing.T) {
+		t.Setenv("EDITOR", "vi")
+		m := newModel()
+		m.specViewer.FocusMode = true
+		m.specViewer.JumpTarget = "R"
+		if got := m.currentSpecPath(); got != filepath.Join("/proj", "openspec", "specs", "auth", "spec.md") {
+			t.Errorf("focus mode resolved unexpected path %q", got)
+		}
+		_, cmd := m.dispatchKey(tea.KeyPressMsg{Text: "e"})
+		if cmd == nil {
+			t.Error("expected non-nil command when pressing e in focus mode")
+		}
+	})
+}
+
+func TestEditorReturnReloadsSpec(t *testing.T) {
+	dir := t.TempDir()
+	specDir := filepath.Join(dir, "openspec", "specs", "auth")
+	if err := os.MkdirAll(specDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	orig := "## Purpose\nP.\n\n## Requirements\n\n### Requirement: R\n#### Scenario: S\n- **WHEN** a\n- **THEN** b\n"
+	if err := os.WriteFile(filepath.Join(specDir, "spec.md"), []byte(orig), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := Model{
+		mode:         ModeViewingSpec,
+		root:         dir,
+		loader:       testLoader(),
+		width:        80,
+		vpReady:      true,
+		projectSpecs: []openspec.ProjectSpec{{Name: "auth", Content: orig}},
+	}
+	m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+
+	// Simulate an external edit while the editor was open.
+	updated := orig + "\n### Requirement: Added\n#### Scenario: S2\n- **WHEN** c\n- **THEN** d\n"
+	if err := os.WriteFile(filepath.Join(specDir, "spec.md"), []byte(updated), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	result, _ := m.Update(editorReturnMsg{})
+	got := result.(Model)
+
+	if got.mode != ModeViewingSpec {
+		t.Errorf("expected to stay in ModeViewingSpec, got %d", got.mode)
+	}
+	if len(got.projectSpecs) == 0 || !strings.Contains(got.projectSpecs[0].Content, "Requirement: Added") {
+		t.Error("expected reloaded spec content to include the external edit")
+	}
+}
+
+// Regression: if the spec list shrinks while the editor is open, the cursor
+// must be clamped on return so the next render cannot index out of range.
+func TestEditorReturnClampsCursorWhenSpecListShrinks(t *testing.T) {
+	dir := t.TempDir()
+	// No specs on disk: LoadProjectSpecsFrom returns an empty list.
+	if err := os.MkdirAll(filepath.Join(dir, "openspec", "specs"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	m := Model{
+		mode:    ModeViewingSpec,
+		root:    dir,
+		loader:  testLoader(),
+		width:   80,
+		vpReady: true,
+		// In-memory state thinks there are two specs with the cursor on the second.
+		projectSpecs: []openspec.ProjectSpec{
+			{Name: "auth", Content: "x"},
+			{Name: "export", Content: "y"},
+		},
+	}
+	m.specViewer.Cursor = 1
+	m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("editorReturnMsg panicked after spec list shrank: %v", r)
+		}
+	}()
+	result, _ := m.Update(editorReturnMsg{})
+	got := result.(Model)
+
+	if len(got.projectSpecs) != 0 {
+		t.Fatalf("expected reloaded spec list to be empty, got %d", len(got.projectSpecs))
+	}
+	if got.specViewer.Cursor != 0 {
+		t.Errorf("expected cursor clamped to 0 after shrink, got %d", got.specViewer.Cursor)
+	}
+	if got.mode != ModeViewingSpec {
+		t.Errorf("expected to stay in ModeViewingSpec, got %d", got.mode)
+	}
+}
+
 func TestRenderTabBar(t *testing.T) {
 	t.Run("active tab highlighted", func(t *testing.T) {
 		m := &Model{
