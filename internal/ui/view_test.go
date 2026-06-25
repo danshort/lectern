@@ -1497,3 +1497,70 @@ func TestHelpOverlayCtrlCQuits(t *testing.T) {
 		t.Error("expected quit command on ctrl+c while help overlay open")
 	}
 }
+
+// Keyboard Enter and mouse click share activateIndexItem, so they must open the
+// same things — except a spec, which Enter opens but a click expands (the mouse
+// analogue of Space).
+func TestIndexActivationKeyboardMouseParity(t *testing.T) {
+	newModel := func() Model {
+		m := Model{
+			mode: ModeIndex, width: 80, height: 24, vpReady: true,
+			loader: testLoader(),
+			project: &openspec.Project{Changes: []openspec.Change{
+				{Name: "feat-a", Proposal: openspec.Artifact{Present: true, Content: "x"}},
+			}},
+			projectSpecs: []openspec.ProjectSpec{{Name: "auth", RequirementNames: []string{"R"}, Content: "## Purpose\n"}},
+			renderCache:  map[Tab]string{},
+		}
+		m.index.ExpandedSpecs = map[int]bool{}
+		m.index.ExpandedArchives = map[int]bool{}
+		m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+		m.buildIndexItems()
+		return m
+	}
+	specItemIdx := func(m Model) int {
+		for i, it := range m.index.Items {
+			if it.kind == indexKindSpec {
+				return i
+			}
+		}
+		return -1
+	}
+
+	t.Run("active change: Enter and click both open it in normal mode", func(t *testing.T) {
+		mk := newModel()
+		mk.index.Cursor = 0
+		kb, _ := mk.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+		if got := kb.(Model).mode; got != ModeNormal {
+			t.Errorf("Enter on active change: expected ModeNormal, got %d", got)
+		}
+		click, _ := newModel().clickIndexItem(0)
+		if got := click.(Model).mode; got != ModeNormal {
+			t.Errorf("click on active change: expected ModeNormal, got %d", got)
+		}
+	})
+
+	t.Run("spec: Enter opens it, click expands it", func(t *testing.T) {
+		base := newModel()
+		si := specItemIdx(base)
+		if si < 0 {
+			t.Fatal("no spec item built")
+		}
+
+		mk := newModel()
+		mk.index.Cursor = si
+		kb, _ := mk.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+		if got := kb.(Model).mode; got != ModeViewingSpec {
+			t.Errorf("Enter on spec: expected ModeViewingSpec, got %d", got)
+		}
+
+		click, _ := newModel().clickIndexItem(si)
+		cm := click.(Model)
+		if cm.mode != ModeIndex {
+			t.Errorf("click on spec: expected to stay ModeIndex, got %d", cm.mode)
+		}
+		if !cm.index.ExpandedSpecs[0] {
+			t.Error("click on spec: expected the spec to be expanded")
+		}
+	})
+}
