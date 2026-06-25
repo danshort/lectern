@@ -697,6 +697,43 @@ func sameStrings(a, b []string) bool {
 	return true
 }
 
+// activateIndexItem opens or navigates to an index item: an active change, an
+// archived change or one of its artifacts, a spec (full view), or a focused
+// requirement. It does NOT toggle expand/collapse — callers decide whether a
+// gesture expands before delegating here. Shared by the keyboard Enter handler
+// and the mouse click handler so the two cannot drift.
+func (m Model) activateIndexItem(item indexItem) (tea.Model, tea.Cmd) {
+	m.renderCache = make(map[Tab]string)
+	switch item.kind {
+	case indexKindActive:
+		m.changeIdx = item.idx
+		m.mode = ModeNormal
+		m.tab = m.defaultTab()
+		m.loadTaskItems()
+	case indexKindSpec:
+		m.specViewer.Cursor = item.idx
+		m.specViewer.JumpTarget = ""
+		m.specViewer.FocusMode = false
+		m.specViewer.ReqCursor = 0
+		m.mode = ModeViewingSpec
+	case indexKindRequirement:
+		m.specViewer.Cursor = item.idx
+		m.specViewer.JumpTarget = m.projectSpecs[item.idx].RequirementNames[item.reqIdx]
+		m.specViewer.FocusMode = true
+		m.specViewer.ReqCursor = item.reqIdx
+		m.mode = ModeViewingSpec
+	case indexKindArchivedArtifact:
+		m.index.ArchiveCursor = item.idx
+		m.tab = Tab(item.reqIdx)
+		m.mode = ModeViewingArchive
+	case indexKindArchived:
+		m.index.ArchiveCursor = item.idx
+		m.tab = firstAvailableTab(m.index.ArchiveChanges[item.idx])
+		m.mode = ModeViewingArchive
+	}
+	return m.commitStateChange()
+}
+
 func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.index.FilterActive {
 		switch msg.String() {
@@ -772,40 +809,7 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if m.visibleItemCount() > 0 {
 			item := m.index.Items[m.visibleItemIdx(m.index.Cursor)]
-			m.renderCache = make(map[Tab]string)
-			if item.kind == indexKindActive {
-				m.changeIdx = item.idx
-				m.mode = ModeNormal
-				m.tab = m.defaultTab()
-				m.loadTaskItems()
-				return m.commitStateChange()
-			}
-			if item.kind == indexKindSpec {
-				m.specViewer.Cursor = item.idx
-				m.specViewer.JumpTarget = ""
-				m.specViewer.FocusMode = false
-				m.specViewer.ReqCursor = 0
-				m.mode = ModeViewingSpec
-				return m.commitStateChange()
-			}
-			if item.kind == indexKindRequirement {
-				m.specViewer.Cursor = item.idx
-				m.specViewer.JumpTarget = m.projectSpecs[item.idx].RequirementNames[item.reqIdx]
-				m.specViewer.FocusMode = true
-				m.specViewer.ReqCursor = item.reqIdx
-				m.mode = ModeViewingSpec
-				return m.commitStateChange()
-			}
-			if item.kind == indexKindArchivedArtifact {
-				m.index.ArchiveCursor = item.idx
-				m.tab = Tab(item.reqIdx)
-				m.mode = ModeViewingArchive
-				return m.commitStateChange()
-			}
-			m.index.ArchiveCursor = item.idx
-			m.tab = firstAvailableTab(m.index.ArchiveChanges[item.idx])
-			m.mode = ModeViewingArchive
-			return m.commitStateChange()
+			return m.activateIndexItem(item)
 		}
 
 	case "space":

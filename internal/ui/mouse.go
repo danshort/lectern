@@ -117,43 +117,13 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) clickIndexItem(idx int) (tea.Model, tea.Cmd) {
 	item := m.index.Items[idx]
-	m.renderCache = make(map[Tab]string)
-	switch item.kind {
-	case indexKindActive:
-		m.changeIdx = item.idx
-		m.mode = ModeNormal
-		m.tab = m.defaultTab()
-		m.loadTaskItems()
-		m.vp.SetHeight(m.contentHeight())
-		return m, m.loadViewport()
-
-	case indexKindArchived:
-		m.index.ArchiveCursor = item.idx
-		m.tab = firstAvailableTab(m.index.ArchiveChanges[item.idx])
-		m.mode = ModeViewingArchive
-		m.vp.SetHeight(m.contentHeight())
-		return m, m.loadViewport()
-
-	case indexKindArchivedArtifact:
-		m.index.ArchiveCursor = item.idx
-		m.tab = Tab(item.reqIdx)
-		m.mode = ModeViewingArchive
-		m.vp.SetHeight(m.contentHeight())
-		return m, m.loadViewport()
-
-	case indexKindSpec:
+	// Clicking a spec toggles its expansion — the mouse analogue of Space.
+	// Every other kind opens/navigates, identical to the keyboard Enter path.
+	if item.kind == indexKindSpec {
+		m.renderCache = make(map[Tab]string)
 		m.index.ExpandedSpecs[item.idx] = !m.index.ExpandedSpecs[item.idx]
 		m.toggleExpansion(indexKindSpec, item.idx)
 		return m, nil
-
-	case indexKindRequirement:
-		m.specViewer.Cursor = item.idx
-		m.specViewer.JumpTarget = m.projectSpecs[item.idx].RequirementNames[item.reqIdx]
-		m.specViewer.FocusMode = true
-		m.specViewer.ReqCursor = item.reqIdx
-		m.mode = ModeViewingSpec
-		m.vp.SetHeight(m.contentHeight())
-		return m, m.loadViewport()
 	}
-	return m, nil
+	return m.activateIndexItem(item)
 }
