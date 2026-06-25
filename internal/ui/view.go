@@ -202,9 +202,9 @@ func (m *Model) renderHelpBar() string {
 	}
 	if m.mode == ModeViewingSpec {
 		if m.specViewer.FocusMode {
-			return helpStyle.Render("h/l: req anterior/siguiente  j/k: scroll  Esc: index  q: quit")
+			return helpStyle.Render("h/l: req anterior/siguiente  j/k: scroll  e: edit  Esc: index  q: quit")
 		}
-		return helpStyle.Render("j/k: scroll  Esc: index  q: quit")
+		return helpStyle.Render("j/k: scroll  e: edit  Esc: index  q: quit")
 	}
 	if m.mode == ModeViewingArchive {
 		return helpStyle.Render("1-4/Tab: artifact  j/k: scroll  a/Esc: index  q: quit")

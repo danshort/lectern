@@ -60,6 +60,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(nextTick, cmd)
 
 	case editorReturnMsg:
+		if m.mode == ModeViewingSpec {
+			// A project spec was edited: reload specs from disk so the change
+			// shows immediately, staying in ModeViewingSpec. Clamp the cursor
+			// in case the spec list shrank.
+			if specs, err := m.loader.LoadProjectSpecsFrom(m.root); err == nil {
+				m.projectSpecs = specs
+				if m.specViewer.Cursor >= len(m.projectSpecs) {
+					m.specViewer.Cursor = len(m.projectSpecs) - 1
+				}
+				if m.specViewer.Cursor < 0 {
+					m.specViewer.Cursor = 0
+				}
+			}
+			return m, m.loadViewport()
+		}
 		ch := m.current()
 		if ch != nil {
 			var cursorText string

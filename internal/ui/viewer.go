@@ -113,23 +113,30 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case "e":
 		if m.tabAvailable(m.tab) {
-			path := m.artifactPath()
-			if path != "" {
-				// Split EDITOR so values like "code --wait" or "emacs -nw" work.
-				fields := strings.Fields(os.Getenv("EDITOR"))
-				if len(fields) == 0 {
-					fields = []string{"vi"}
-				}
-				args := append(fields[1:], path)
-				// #nosec G204 G702 -- by design: opens the user's own $EDITOR on a file
-				// in their own project. No shell is invoked (exec.Command does not
-				// interpret shell metacharacters), so this is not command injection.
-				cmd := exec.Command(fields[0], args...)
-				return m, tea.ExecProcess(cmd, func(err error) tea.Msg {
-					return editorReturnMsg{}
-				})
+			if path := m.artifactPath(); path != "" {
+				return m, m.openInEditor(path)
 			}
 		}
 	}
 	return m, nil
+}
+
+// openInEditor launches the user's $EDITOR (falling back to vi) on path and
+// posts an editorReturnMsg when the editor exits. The TUI yields the terminal
+// via tea.ExecProcess and resumes on return. Shared by the change viewer and
+// the spec viewer.
+func (m *Model) openInEditor(path string) tea.Cmd {
+	// Split EDITOR so values like "code --wait" or "emacs -nw" work.
+	fields := strings.Fields(os.Getenv("EDITOR"))
+	if len(fields) == 0 {
+		fields = []string{"vi"}
+	}
+	args := append(fields[1:], path)
+	// #nosec G204 G702 -- by design: opens the user's own $EDITOR on a file
+	// in their own project. No shell is invoked (exec.Command does not
+	// interpret shell metacharacters), so this is not command injection.
+	cmd := exec.Command(fields[0], args...)
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return editorReturnMsg{}
+	})
 }

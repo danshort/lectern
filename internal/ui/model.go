@@ -306,6 +306,16 @@ func (m *Model) artifactPath() string {
 	return ""
 }
 
+// currentSpecPath returns the on-disk path of the project spec currently being
+// viewed in ModeViewingSpec, or "" if the cursor is out of range. Requirements
+// are sections within a single spec.md, so focus mode resolves to the same file.
+func (m *Model) currentSpecPath() string {
+	if m.specViewer.Cursor < 0 || m.specViewer.Cursor >= len(m.projectSpecs) {
+		return ""
+	}
+	return filepath.Join(m.root, "openspec", "specs", m.projectSpecs[m.specViewer.Cursor].Name, "spec.md")
+}
+
 func (m *Model) currentArchive() *openspec.Change {
 	if m.index.ArchiveCursor < len(m.index.ArchiveChanges) {
 		return &m.index.ArchiveChanges[m.index.ArchiveCursor]
