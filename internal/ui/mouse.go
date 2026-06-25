@@ -89,29 +89,28 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	x := 1
+	ranges := m.tabRanges()
 	for t := Tab(0); t < tabCount; t++ {
-		w := len(tabLabels[t]) + 2
-		if msg.X >= x && msg.X <= x+w-1 {
-			if !m.tabAvailable(t) {
-				return m, nil
-			}
-			if t == TabSpecs && m.tab == TabSpecs {
-				ch := m.current()
-				if ch != nil && len(ch.SpecFiles) > 1 {
-					m.specIdx = (m.specIdx + 1) % len(ch.SpecFiles)
-					delete(m.renderCache, TabSpecs)
-				}
-			} else {
-				m.tab = t
-				if t == TabSpecs {
-					m.specIdx = 0
-				}
-			}
-			m.vp.SetHeight(m.contentHeight())
-			return m, m.loadViewport()
+		if msg.X < ranges[t].start || msg.X > ranges[t].end {
+			continue
 		}
-		x += w + 1
+		if !m.tabAvailable(t) {
+			return m, nil
+		}
+		if t == TabSpecs && m.tab == TabSpecs {
+			ch := m.current()
+			if ch != nil && len(ch.SpecFiles) > 1 {
+				m.specIdx = (m.specIdx + 1) % len(ch.SpecFiles)
+				delete(m.renderCache, TabSpecs)
+			}
+		} else {
+			m.tab = t
+			if t == TabSpecs {
+				m.specIdx = 0
+			}
+		}
+		m.vp.SetHeight(m.contentHeight())
+		return m, m.loadViewport()
 	}
 
 	return m, nil
