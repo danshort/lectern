@@ -31,6 +31,7 @@ Interfaz de terminal controlada por teclado para leer y navegar artefactos de pr
 - Alterna casillas de verificación (`- [ ]` / `- [x]`) en el propio archivo `tasks.md`
 - Recarga en vivo ante cambios en disco (sondeo cada 500 ms)
 - Abre cualquier artefacto en `$EDITOR`
+- Muestra una superposición con los atajos de teclado desde cualquier pantalla con `?`
 - Acepta una ruta como argumento para ver un cambio concreto sin necesitar un proyecto completo
 
 ---
@@ -76,6 +77,8 @@ lectern /ruta/a/openspec/changes/mi-cambio
 
 ### Referencia de teclado
 
+Pulsa `?` en cualquier pantalla para abrir una superposición con estos atajos, agrupados por pantalla. Pulsa `?`, `Esc` o `q` para cerrarla.
+
 #### Modo normal (viendo un cambio)
 
 | Tecla | Acción |
@@ -91,7 +94,9 @@ lectern /ruta/a/openspec/changes/mi-cambio
 | `k` / `↑` | Desplazar hacia arriba (o mover cursor de tareas hacia arriba) |
 | `Space` | Alternar tarea bajo el cursor (solo en pestaña de tareas) |
 | `e` | Abrir artefacto en `$EDITOR` |
+| `i` | Abrir la vista de configuración del proyecto |
 | `a` / `Esc` | Entrar en modo índice |
+| `?` | Alternar la ayuda de atajos de teclado |
 | `q` / `Ctrl+C` | Salir |
 
 #### Modo índice (navegador de cambios y specs)
@@ -102,15 +107,24 @@ lectern /ruta/a/openspec/changes/mi-cambio
 | `k` / `↑` | Mover cursor hacia arriba |
 | `Enter` | Abrir el cambio, spec o cambio archivado seleccionado |
 | `Space` | Expandir / contraer una spec de proyecto |
-| `q` / `Esc` / `Ctrl+C` | Salir |
+| `/` | Filtrar la lista (escribe para acotar; `Enter` confirma, `Esc` cancela) |
+| `s` | Alternar el orden de las specs (por nombre / por sufijo) |
+| `i` | Abrir la vista de configuración del proyecto |
+| `?` | Alternar la ayuda de atajos de teclado |
+| `Esc` | Limpiar el filtro activo; si no hay, salir |
+| `q` / `Ctrl+C` | Salir |
 
 #### Modo archivo (viendo un cambio archivado)
 
 | Tecla | Acción |
 |---|---|
 | `1`–`4` | Cambiar pestaña de artefacto |
+| `Tab` / `Shift+Tab` / `←` / `→` | Ciclar entre pestañas de artefacto |
 | `j` / `k` | Desplazar |
+| `e` | Abrir artefacto en `$EDITOR` |
+| `i` | Abrir la vista de configuración del proyecto |
 | `a` / `Esc` | Volver al índice |
+| `?` | Alternar la ayuda de atajos de teclado |
 | `q` / `Ctrl+C` | Salir |
 
 #### Modo visor de spec
@@ -118,7 +132,9 @@ lectern /ruta/a/openspec/changes/mi-cambio
 | Tecla | Acción |
 |---|---|
 | `j` / `k` | Desplazar |
+| `e` | Abrir spec en `$EDITOR` |
 | `Esc` | Volver al índice |
+| `?` | Alternar la ayuda de atajos de teclado |
 | `q` / `Ctrl+C` | Salir |
 
 En modo foco de requisitos:
@@ -127,7 +143,18 @@ En modo foco de requisitos:
 |---|---|
 | `h` / `l` | Requisito anterior / siguiente |
 | `j` / `k` | Desplazar |
+| `e` | Abrir spec en `$EDITOR` |
 | `Esc` | Volver al índice |
+| `?` | Alternar la ayuda de atajos de teclado |
+| `q` / `Ctrl+C` | Salir |
+
+#### Vista de configuración del proyecto
+
+| Tecla | Acción |
+|---|---|
+| `j` / `k` | Desplazar |
+| `i` / `Esc` | Volver a la pantalla anterior |
+| `?` | Alternar la ayuda de atajos de teclado |
 | `q` / `Ctrl+C` | Salir |
 
 ---

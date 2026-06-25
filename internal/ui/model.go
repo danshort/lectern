@@ -9,6 +9,7 @@ import (
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/danshort/lectern/internal/openspec"
 )
 
@@ -133,6 +134,7 @@ type Model struct {
 
 	mode          Mode
 	prevMode      Mode
+	helpOpen      bool
 	index         indexState
 	projectSpecs  []openspec.ProjectSpec
 	specViewer    specViewerState
@@ -195,6 +197,10 @@ func (m Model) View() tea.View {
 		content = m.emptyViewContent()
 	} else {
 		content = m.mainViewContent()
+	}
+
+	if m.helpOpen {
+		content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, m.renderHelpOverlay())
 	}
 
 	v := tea.NewView(content)

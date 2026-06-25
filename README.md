@@ -31,6 +31,7 @@ A keyboard-driven terminal UI for reading and navigating [OpenSpec](https://gith
 - Toggles task checkboxes (`- [ ]` / `- [x]`) in-place, writing directly to `tasks.md`
 - Live-reloads on disk changes (500 ms polling)
 - Opens any artifact in `$EDITOR`
+- Shows a keyboard-shortcut overlay from any screen with `?`
 - Accepts a path argument to view a single change directory without a full project
 
 ---
@@ -76,6 +77,8 @@ lectern /path/to/openspec/changes/my-change
 
 ### Keyboard reference
 
+Press `?` on any screen to open an in-app overlay listing these shortcuts, grouped by screen. Press `?`, `Esc`, or `q` to close it.
+
 #### Normal mode (viewing a change)
 
 | Key | Action |
@@ -91,7 +94,9 @@ lectern /path/to/openspec/changes/my-change
 | `k` / `up` | Scroll up (or move task cursor up) |
 | `Space` | Toggle task under cursor (tasks tab only) |
 | `e` | Open artifact in `$EDITOR` |
+| `i` | Open project config view |
 | `a` / `Esc` | Enter index mode |
+| `?` | Toggle keyboard-shortcut help |
 | `q` / `Ctrl+C` | Quit |
 
 #### Index mode (change and spec navigator)
@@ -102,15 +107,24 @@ lectern /path/to/openspec/changes/my-change
 | `k` / `up` | Move cursor up |
 | `Enter` | Open selected change, spec, or archived change |
 | `Space` | Expand / collapse a project spec |
-| `q` / `Esc` / `Ctrl+C` | Quit |
+| `/` | Filter the list (type to narrow; `Enter` confirms, `Esc` cancels) |
+| `s` | Toggle spec sort (by name / by suffix) |
+| `i` | Open project config view |
+| `?` | Toggle keyboard-shortcut help |
+| `Esc` | Clear active filter, otherwise quit |
+| `q` / `Ctrl+C` | Quit |
 
 #### Archive mode (viewing an archived change)
 
 | Key | Action |
 |---|---|
 | `1`–`4` | Switch artifact tab |
+| `Tab` / `Shift+Tab` / `←` / `→` | Cycle artifact tabs |
 | `j` / `k` | Scroll |
+| `e` | Open artifact in `$EDITOR` |
+| `i` | Open project config view |
 | `a` / `Esc` | Return to index |
+| `?` | Toggle keyboard-shortcut help |
 | `q` / `Ctrl+C` | Quit |
 
 #### Spec viewer mode
@@ -118,7 +132,9 @@ lectern /path/to/openspec/changes/my-change
 | Key | Action |
 |---|---|
 | `j` / `k` | Scroll |
+| `e` | Open spec in `$EDITOR` |
 | `Esc` | Return to index |
+| `?` | Toggle keyboard-shortcut help |
 | `q` / `Ctrl+C` | Quit |
 
 In requirement focus mode:
@@ -127,7 +143,18 @@ In requirement focus mode:
 |---|---|
 | `h` / `l` | Previous / next requirement |
 | `j` / `k` | Scroll |
+| `e` | Open spec in `$EDITOR` |
 | `Esc` | Return to index |
+| `?` | Toggle keyboard-shortcut help |
+| `q` / `Ctrl+C` | Quit |
+
+#### Project config view
+
+| Key | Action |
+|---|---|
+| `j` / `k` | Scroll |
+| `i` / `Esc` | Return to the previous screen |
+| `?` | Toggle keyboard-shortcut help |
 | `q` / `Ctrl+C` | Quit |
 
 ---
