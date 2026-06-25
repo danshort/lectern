@@ -274,7 +274,7 @@ func TestArchiveTasksTabArrowDoesNotMoveCursor(t *testing.T) {
 	newModel := func() Model {
 		m := Model{
 			mode:   ModeViewingArchive,
-			tab:    TabTasks,
+			viewer: viewerState{tab: TabTasks},
 			width:  80,
 			height: 24,
 			tasks: taskState{
@@ -352,11 +352,10 @@ func TestArrowKeyTabNavigation(t *testing.T) {
 	// proposal + specs available, design + tasks absent → arrows skip disabled.
 	newModel := func(startTab Tab) Model {
 		m := Model{
-			mode:      ModeNormal,
-			width:     80,
-			height:    24,
-			tab:       startTab,
-			changeIdx: 0,
+			mode:   ModeNormal,
+			width:  80,
+			height: 24,
+			viewer: viewerState{tab: startTab, changeIdx: 0},
 			project: &openspec.Project{Changes: []openspec.Change{{
 				Name:     "feat",
 				Proposal: openspec.Artifact{Present: true},
@@ -370,7 +369,7 @@ func TestArrowKeyTabNavigation(t *testing.T) {
 	t.Run("right advances to next available tab", func(t *testing.T) {
 		m := newModel(TabProposal)
 		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyRight})
-		if got := result.(Model).tab; got != TabSpecs {
+		if got := result.(Model).viewer.tab; got != TabSpecs {
 			t.Errorf("expected → to move proposal→specs (skipping disabled), got tab %d", got)
 		}
 	})
@@ -378,7 +377,7 @@ func TestArrowKeyTabNavigation(t *testing.T) {
 	t.Run("left goes to previous available tab", func(t *testing.T) {
 		m := newModel(TabSpecs)
 		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyLeft})
-		if got := result.(Model).tab; got != TabProposal {
+		if got := result.(Model).viewer.tab; got != TabProposal {
 			t.Errorf("expected ← to move specs→proposal (skipping disabled), got tab %d", got)
 		}
 	})
@@ -387,7 +386,7 @@ func TestArrowKeyTabNavigation(t *testing.T) {
 		// Single change: l wraps to same change and must not change the tab.
 		m := newModel(TabProposal)
 		result, _ := m.dispatchKey(tea.KeyPressMsg{Text: "l"})
-		if got := result.(Model).tab; got != TabProposal {
+		if got := result.(Model).viewer.tab; got != TabProposal {
 			t.Errorf("expected l to leave tab unchanged, got tab %d", got)
 		}
 	})
@@ -610,7 +609,7 @@ func TestLoadViewportDispatch(t *testing.T) {
 		m := &Model{
 			vpReady: true,
 			mode:    ModeNormal,
-			tab:     TabTasks,
+			viewer:  viewerState{tab: TabTasks},
 			width:   80,
 			project: &openspec.Project{Changes: []openspec.Change{{Name: "test", Tasks: openspec.Artifact{Present: true}}}},
 		}
@@ -625,7 +624,7 @@ func TestLoadViewportDispatch(t *testing.T) {
 		m := &Model{
 			vpReady:     true,
 			mode:        ModeNormal,
-			tab:         TabProposal,
+			viewer:      viewerState{tab: TabProposal},
 			width:       80,
 			renderCache: map[Tab]string{TabProposal: "cached content"},
 			project:     &openspec.Project{Changes: []openspec.Change{{Name: "test", Proposal: openspec.Artifact{Present: true, Content: "content"}}}},
@@ -973,7 +972,7 @@ func TestCurrentSpecPath(t *testing.T) {
 	}
 
 	t.Run("valid cursor returns spec.md path", func(t *testing.T) {
-		m.specViewer.Cursor = 1
+		m.spec.Cursor = 1
 		want := filepath.Join("/proj", "openspec", "specs", "export", "spec.md")
 		if got := m.currentSpecPath(); got != want {
 			t.Errorf("expected %q, got %q", want, got)
@@ -981,14 +980,14 @@ func TestCurrentSpecPath(t *testing.T) {
 	})
 
 	t.Run("cursor past end returns empty", func(t *testing.T) {
-		m.specViewer.Cursor = 5
+		m.spec.Cursor = 5
 		if got := m.currentSpecPath(); got != "" {
 			t.Errorf("expected empty path for out-of-range cursor, got %q", got)
 		}
 	})
 
 	t.Run("negative cursor returns empty", func(t *testing.T) {
-		m.specViewer.Cursor = -1
+		m.spec.Cursor = -1
 		if got := m.currentSpecPath(); got != "" {
 			t.Errorf("expected empty path for negative cursor, got %q", got)
 		}
@@ -1033,8 +1032,8 @@ func TestSpecEditKeyLaunchesEditor(t *testing.T) {
 	t.Run("e in focus mode opens the same spec file", func(t *testing.T) {
 		t.Setenv("EDITOR", "vi")
 		m := newModel()
-		m.specViewer.FocusMode = true
-		m.specViewer.JumpTarget = "R"
+		m.spec.FocusMode = true
+		m.spec.JumpTarget = "R"
 		if got := m.currentSpecPath(); got != filepath.Join("/proj", "openspec", "specs", "auth", "spec.md") {
 			t.Errorf("focus mode resolved unexpected path %q", got)
 		}
@@ -1104,7 +1103,7 @@ func TestEditorReturnClampsCursorWhenSpecListShrinks(t *testing.T) {
 			{Name: "export", Content: "y"},
 		},
 	}
-	m.specViewer.Cursor = 1
+	m.spec.Cursor = 1
 	m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
 
 	defer func() {
@@ -1118,8 +1117,8 @@ func TestEditorReturnClampsCursorWhenSpecListShrinks(t *testing.T) {
 	if len(got.projectSpecs) != 0 {
 		t.Fatalf("expected reloaded spec list to be empty, got %d", len(got.projectSpecs))
 	}
-	if got.specViewer.Cursor != 0 {
-		t.Errorf("expected cursor clamped to 0 after shrink, got %d", got.specViewer.Cursor)
+	if got.spec.Cursor != 0 {
+		t.Errorf("expected cursor clamped to 0 after shrink, got %d", got.spec.Cursor)
 	}
 	if got.mode != ModeViewingSpec {
 		t.Errorf("expected to stay in ModeViewingSpec, got %d", got.mode)
@@ -1129,8 +1128,8 @@ func TestEditorReturnClampsCursorWhenSpecListShrinks(t *testing.T) {
 func TestRenderTabBar(t *testing.T) {
 	t.Run("active tab highlighted", func(t *testing.T) {
 		m := &Model{
-			tab:   TabProposal,
-			width: 80,
+			viewer: viewerState{tab: TabProposal},
+			width:  80,
 			project: &openspec.Project{
 				Changes: []openspec.Change{{
 					Name:     "test",
@@ -1148,8 +1147,8 @@ func TestRenderTabBar(t *testing.T) {
 
 	t.Run("disabled tab shows low style", func(t *testing.T) {
 		m := &Model{
-			tab:   TabProposal,
-			width: 80,
+			viewer: viewerState{tab: TabProposal},
+			width:  80,
 			project: &openspec.Project{
 				Changes: []openspec.Change{{
 					Name:     "test",
@@ -1260,8 +1259,8 @@ func TestExpandArchivedChange(t *testing.T) {
 		if opened.mode != ModeViewingArchive {
 			t.Errorf("expected ModeViewingArchive, got %d", opened.mode)
 		}
-		if opened.tab != TabSpecs {
-			t.Errorf("expected tab TabSpecs, got %d", opened.tab)
+		if opened.viewer.tab != TabSpecs {
+			t.Errorf("expected tab TabSpecs, got %d", opened.viewer.tab)
 		}
 		if opened.index.ArchiveCursor != 0 {
 			t.Errorf("expected ArchiveCursor 0, got %d", opened.index.ArchiveCursor)
@@ -1325,8 +1324,8 @@ func TestClickArchivedArtifact(t *testing.T) {
 	if opened.mode != ModeViewingArchive {
 		t.Errorf("expected ModeViewingArchive, got %d", opened.mode)
 	}
-	if opened.tab != TabTasks {
-		t.Errorf("expected tab TabTasks, got %d", opened.tab)
+	if opened.viewer.tab != TabTasks {
+		t.Errorf("expected tab TabTasks, got %d", opened.viewer.tab)
 	}
 	if opened.index.ArchiveCursor != 0 {
 		t.Errorf("expected ArchiveCursor 0, got %d", opened.index.ArchiveCursor)
@@ -1450,7 +1449,7 @@ func TestIndexClickWithOOBCursorDoesNotPanic(t *testing.T) {
 
 // Regression: editing a foreign worktree change and returning from the editor
 // must reload into worktreeViewChange, NOT overwrite the rooted project's
-// change at m.changeIdx (the bug mergeReloadedChange would otherwise cause).
+// change at m.viewer.changeIdx (the bug mergeReloadedChange would otherwise cause).
 func TestEditorReturnForeignWorktreeDoesNotCorruptRooted(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "proposal.md"), []byte("# updated foreign"), 0644); err != nil {
@@ -1470,8 +1469,7 @@ func TestEditorReturnForeignWorktreeDoesNotCorruptRooted(t *testing.T) {
 		mode:                  ModeViewingArchive,
 		viewingWorktreeChange: true,
 		worktreeViewChange:    foreign,
-		tab:                   TabProposal,
-		changeIdx:             0,
+		viewer:                viewerState{tab: TabProposal, changeIdx: 0},
 		width:                 80,
 		vpReady:               true,
 		loader:                testLoader(),

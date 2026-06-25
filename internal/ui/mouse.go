@@ -12,7 +12,7 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			m.refreshIndexViewport()
 			return m, nil
 		}
-		if m.tab == TabTasks && m.mode == ModeNormal {
+		if m.viewer.tab == TabTasks && m.mode == ModeNormal {
 			m.moveCursorUp()
 			m.refreshTasksViewport()
 			return m, nil
@@ -27,7 +27,7 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (tea.Model, tea.Cmd) {
 			m.refreshIndexViewport()
 			return m, nil
 		}
-		if m.tab == TabTasks && m.mode == ModeNormal {
+		if m.viewer.tab == TabTasks && m.mode == ModeNormal {
 			m.moveCursorDown()
 			m.refreshTasksViewport()
 			return m, nil
@@ -93,8 +93,8 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 			if msg.X < ranges[i].start || msg.X > ranges[i].end {
 				continue
 			}
-			if i != m.specIdx {
-				m.specIdx = i
+			if i != m.viewer.specIdx {
+				m.viewer.specIdx = i
 				delete(m.renderCache, TabSpecs)
 				m.vp.SetHeight(m.contentHeight())
 				return m, m.loadViewport()
@@ -119,7 +119,7 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (tea.Model, tea.Cmd) {
 		}
 		// Selecting the specs tab preserves specIdx (the last-viewed spec);
 		// switching specs is done via the chip row or [ / ].
-		m.tab = t
+		m.viewer.tab = t
 		m.vp.SetHeight(m.contentHeight())
 		return m, m.loadViewport()
 	}

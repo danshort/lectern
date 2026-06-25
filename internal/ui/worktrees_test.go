@@ -221,8 +221,8 @@ func TestEnterOpensForeignChangeReadOnly(t *testing.T) {
 		if ch == nil || ch.Name != "foreign" {
 			t.Fatalf("expected current() to be the foreign change, got %v", ch)
 		}
-		if opened.tab != TabTasks {
-			t.Errorf("expected the tasks tab (only available artifact), got %d", opened.tab)
+		if opened.viewer.tab != TabTasks {
+			t.Errorf("expected the tasks tab (only available artifact), got %d", opened.viewer.tab)
 		}
 	})
 

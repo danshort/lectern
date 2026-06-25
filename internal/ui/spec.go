@@ -9,9 +9,9 @@ func (m Model) updateSpec(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 
 	case "esc":
-		specIdx := m.specViewer.Cursor
-		jumpTarget := m.specViewer.JumpTarget
-		wasFocusMode := m.specViewer.FocusMode
+		specIdx := m.spec.Cursor
+		jumpTarget := m.spec.JumpTarget
+		wasFocusMode := m.spec.FocusMode
 		m.enterIndex()
 		if wasFocusMode && jumpTarget != "" {
 			m.index.ExpandedSpecs[specIdx] = true
@@ -41,21 +41,21 @@ func (m Model) updateSpec(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.vp.ScrollUp(1)
 
 	case "h":
-		if m.specViewer.FocusMode {
-			ps := m.projectSpecs[m.specViewer.Cursor]
+		if m.spec.FocusMode {
+			ps := m.projectSpecs[m.spec.Cursor]
 			if len(ps.RequirementNames) > 0 {
-				m.specViewer.ReqCursor = (m.specViewer.ReqCursor - 1 + len(ps.RequirementNames)) % len(ps.RequirementNames)
-				m.specViewer.JumpTarget = ps.RequirementNames[m.specViewer.ReqCursor]
+				m.spec.ReqCursor = (m.spec.ReqCursor - 1 + len(ps.RequirementNames)) % len(ps.RequirementNames)
+				m.spec.JumpTarget = ps.RequirementNames[m.spec.ReqCursor]
 				return m, m.loadViewport()
 			}
 		}
 
 	case "l":
-		if m.specViewer.FocusMode {
-			ps := m.projectSpecs[m.specViewer.Cursor]
+		if m.spec.FocusMode {
+			ps := m.projectSpecs[m.spec.Cursor]
 			if len(ps.RequirementNames) > 0 {
-				m.specViewer.ReqCursor = (m.specViewer.ReqCursor + 1) % len(ps.RequirementNames)
-				m.specViewer.JumpTarget = ps.RequirementNames[m.specViewer.ReqCursor]
+				m.spec.ReqCursor = (m.spec.ReqCursor + 1) % len(ps.RequirementNames)
+				m.spec.JumpTarget = ps.RequirementNames[m.spec.ReqCursor]
 				return m, m.loadViewport()
 			}
 		}

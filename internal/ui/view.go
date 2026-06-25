@@ -125,13 +125,13 @@ func (m *Model) renderHeader() string {
 	}
 	if m.mode == ModeViewingSpec {
 		specName := ""
-		if m.specViewer.Cursor < len(m.projectSpecs) {
-			specName = m.projectSpecs[m.specViewer.Cursor].Name
+		if m.spec.Cursor < len(m.projectSpecs) {
+			specName = m.projectSpecs[m.spec.Cursor].Name
 		}
-		if m.specViewer.FocusMode && m.specViewer.Cursor < len(m.projectSpecs) {
-			ps := m.projectSpecs[m.specViewer.Cursor]
+		if m.spec.FocusMode && m.spec.Cursor < len(m.projectSpecs) {
+			ps := m.projectSpecs[m.spec.Cursor]
 			return headerStyle.Width(m.innerWidth()).Render(
-				fmt.Sprintf("%s  ·  %s  ·  Req %d/%d", m.project.Name, specName, m.specViewer.ReqCursor+1, len(ps.RequirementNames)),
+				fmt.Sprintf("%s  ·  %s  ·  Req %d/%d", m.project.Name, specName, m.spec.ReqCursor+1, len(ps.RequirementNames)),
 			)
 		}
 		return headerStyle.Width(m.innerWidth()).Render(
@@ -151,7 +151,7 @@ func (m *Model) renderHeader() string {
 			fmt.Sprintf("%s  ·  %s  %s", m.project.Name, ch.Name, tag),
 		)
 	}
-	nav := fmt.Sprintf("[%d/%d]", m.changeIdx+1, len(m.project.Changes))
+	nav := fmt.Sprintf("[%d/%d]", m.viewer.changeIdx+1, len(m.project.Changes))
 	return headerStyle.Width(m.innerWidth()).Render(
 		fmt.Sprintf("%s  ·  %s  %s", m.project.Name, ch.Name, nav),
 	)
@@ -163,7 +163,7 @@ func (m *Model) renderHeader() string {
 func (m *Model) styledTab(t Tab) string {
 	label := tabLabels[t]
 	switch {
-	case t == m.tab:
+	case t == m.viewer.tab:
 		return tabActiveStyle.Render(label)
 	case !m.tabAvailable(t):
 		return tabDisabledStyle.Render(label)
@@ -230,7 +230,7 @@ func (m *Model) renderTabBar() string {
 // and specRanges so hit-testing cannot drift from the rendered chip row.
 func (m *Model) styledSpec(ch *openspec.Change, i int) string {
 	name := ch.SpecFiles[i].Name
-	if i == m.specIdx {
+	if i == m.viewer.specIdx {
 		return tabActiveStyle.Render(name)
 	}
 	return tabInactiveStyle.Render(name)
@@ -270,7 +270,7 @@ func (m *Model) specRanges() []tabRange {
 
 func (m *Model) hasSpecSubnav() bool {
 	ch := m.current()
-	return m.tab == TabSpecs && ch != nil && len(ch.SpecFiles) > 0
+	return m.viewer.tab == TabSpecs && ch != nil && len(ch.SpecFiles) > 0
 }
 
 func (m *Model) boxTop() string {
@@ -327,14 +327,14 @@ func (m *Model) renderHelpBar() string {
 		return helpStyle.Render("j/k: scroll  i/Esc: back  ?: help  q: quit")
 	}
 	if m.mode == ModeViewingSpec {
-		if m.specViewer.FocusMode {
+		if m.spec.FocusMode {
 			return helpStyle.Render("h/l: prev/next req  j/k: scroll  e: edit  Esc: index  ?: help  q: quit")
 		}
 		return helpStyle.Render("j/k: scroll  e: edit  Esc: index  ?: help  q: quit")
 	}
 	if m.mode == ModeViewingArchive {
 		specHint := ""
-		if m.tab == TabSpecs && m.hasMultipleSpecs() {
+		if m.viewer.tab == TabSpecs && m.hasMultipleSpecs() {
 			specHint = "[/]: spec  "
 		}
 		if m.viewingWorktreeChange {
@@ -342,10 +342,10 @@ func (m *Model) renderHelpBar() string {
 		}
 		return helpStyle.Render("1-4/Tab: artifact  " + specHint + "j/k: scroll  a/Esc: index  ?: help  q: quit")
 	}
-	if m.tab == TabSpecs && m.hasMultipleSpecs() {
+	if m.viewer.tab == TabSpecs && m.hasMultipleSpecs() {
 		return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  [/]: spec  j/k: scroll  e: edit  i: info  ?: help  Esc: index  q: quit")
 	}
-	if m.tab == TabTasks {
+	if m.viewer.tab == TabTasks {
 		return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  j/k: navigate  Space: toggle  e: edit  i: info  ?: help  Esc: index  q: quit")
 	}
 	return helpStyle.Render("h/l: change  1-4/Tab/←→: artifact  j/k: scroll  e: edit  i: info  ?: help  Esc: index  q: quit")

@@ -134,20 +134,27 @@ type Theme struct {
 	ViewBg color.Color
 }
 
+// viewerState is the active/archive change-viewing position: which change,
+// which artifact tab, and which spec file within the specs tab. Grouped so the
+// fields that form invalid mode/tab/cursor combinations live together and
+// setMode can clamp them as a unit.
+type viewerState struct {
+	changeIdx int // into project.Changes (ModeNormal)
+	tab       Tab
+	specIdx   int // active spec on TabSpecs (ModeNormal + ModeViewingArchive)
+}
+
 type Model struct {
 	root   string
 	loader *openspec.Loader
 
-	project   *openspec.Project
-	changeIdx int
-	tab       Tab
+	project *openspec.Project
+	viewer  viewerState
 
 	vp      viewport.Model
 	vpReady bool
 
 	tasks taskState
-
-	specIdx int
 
 	errMsg     string
 	loading    bool
@@ -164,7 +171,7 @@ type Model struct {
 	helpOpen      bool
 	index         indexState
 	projectSpecs  []openspec.ProjectSpec
-	specViewer    specViewerState
+	spec          specViewerState
 	projectConfig openspec.ProjectConfig
 	theme         Theme
 
@@ -185,7 +192,7 @@ func New(project *openspec.Project, cfg openspec.ProjectConfig, root string, loa
 		theme:         Theme{},
 	}
 	if len(project.Changes) > 0 {
-		m.tab = m.defaultTab()
+		m.viewer.tab = m.defaultTab()
 		m.loadTaskItems()
 	} else {
 		var archiveErr error
@@ -201,7 +208,7 @@ func New(project *openspec.Project, cfg openspec.ProjectConfig, root string, loa
 		m.index.ExpandedSpecs = make(map[int]bool)
 		m.index.ExpandedArchives = make(map[int]bool)
 		m.buildIndexItems()
-		m.mode = ModeIndex
+		m.setMode(ModeIndex)
 	}
 	return m
 }
@@ -251,7 +258,7 @@ func (m *Model) current() *openspec.Change {
 	if len(m.project.Changes) == 0 {
 		return nil
 	}
-	return &m.project.Changes[m.changeIdx]
+	return &m.project.Changes[m.viewer.changeIdx]
 }
 
 // hasMultipleSpecs reports whether the current change has more than one spec
@@ -339,7 +346,7 @@ func (m *Model) artifactPath() string {
 	if ch == nil {
 		return ""
 	}
-	switch m.tab {
+	switch m.viewer.tab {
 	case TabProposal:
 		return filepath.Join(ch.Path, openspec.FileProposal)
 	case TabDesign:
@@ -347,7 +354,7 @@ func (m *Model) artifactPath() string {
 	case TabTasks:
 		return filepath.Join(ch.Path, openspec.FileTasks)
 	case TabSpecs:
-		if m.specIdx < len(ch.SpecFiles) {
+		if m.viewer.specIdx < len(ch.SpecFiles) {
 			specsDir := filepath.Join(ch.Path, openspec.DirSpecs)
 			entries, err := os.ReadDir(specsDir)
 			if err != nil {
@@ -358,7 +365,7 @@ func (m *Model) artifactPath() string {
 				if !e.IsDir() {
 					continue
 				}
-				if dirIdx == m.specIdx {
+				if dirIdx == m.viewer.specIdx {
 					p := filepath.Join(specsDir, e.Name(), openspec.FileSpec)
 					if _, err := os.Stat(p); err == nil {
 						return p
@@ -376,10 +383,10 @@ func (m *Model) artifactPath() string {
 // viewed in ModeViewingSpec, or "" if the cursor is out of range. Requirements
 // are sections within a single spec.md, so focus mode resolves to the same file.
 func (m *Model) currentSpecPath() string {
-	if m.specViewer.Cursor < 0 || m.specViewer.Cursor >= len(m.projectSpecs) {
+	if m.spec.Cursor < 0 || m.spec.Cursor >= len(m.projectSpecs) {
 		return ""
 	}
-	return filepath.Join(m.root, openspec.DirOpenspec, openspec.DirSpecs, m.projectSpecs[m.specViewer.Cursor].Name, openspec.FileSpec)
+	return filepath.Join(m.root, openspec.DirOpenspec, openspec.DirSpecs, m.projectSpecs[m.spec.Cursor].Name, openspec.FileSpec)
 }
 
 func (m *Model) currentArchive() *openspec.Change {
@@ -420,32 +427,32 @@ func (m *Model) mergeReloadedChange(fresh openspec.Change) (tasksChanged bool, v
 	}
 
 	if fresh.Tasks.Present != ch.Tasks.Present || fresh.Tasks.Content != ch.Tasks.Content {
-		m.project.Changes[m.changeIdx].Tasks = fresh.Tasks
+		m.project.Changes[m.viewer.changeIdx].Tasks = fresh.Tasks
 		m.tasks.Items = openspec.ParseTasks(fresh.Tasks.Content)
 		tasksChanged = true
 	}
 	if fresh.Proposal.Present != ch.Proposal.Present || fresh.Proposal.Content != ch.Proposal.Content {
-		m.project.Changes[m.changeIdx].Proposal = fresh.Proposal
+		m.project.Changes[m.viewer.changeIdx].Proposal = fresh.Proposal
 		delete(m.renderCache, TabProposal)
-		if m.tab == TabProposal {
+		if m.viewer.tab == TabProposal {
 			viewportDirty = true
 		}
 	}
 	if fresh.Design.Present != ch.Design.Present || fresh.Design.Content != ch.Design.Content {
-		m.project.Changes[m.changeIdx].Design = fresh.Design
+		m.project.Changes[m.viewer.changeIdx].Design = fresh.Design
 		delete(m.renderCache, TabDesign)
-		if m.tab == TabDesign {
+		if m.viewer.tab == TabDesign {
 			viewportDirty = true
 		}
 	}
 	if fresh.Specs.Present != ch.Specs.Present || fresh.Specs.Content != ch.Specs.Content {
-		m.project.Changes[m.changeIdx].Specs = fresh.Specs
-		m.project.Changes[m.changeIdx].SpecFiles = fresh.SpecFiles
-		if m.specIdx >= len(fresh.SpecFiles) {
-			m.specIdx = 0
+		m.project.Changes[m.viewer.changeIdx].Specs = fresh.Specs
+		m.project.Changes[m.viewer.changeIdx].SpecFiles = fresh.SpecFiles
+		if m.viewer.specIdx >= len(fresh.SpecFiles) {
+			m.viewer.specIdx = 0
 		}
 		delete(m.renderCache, TabSpecs)
-		if m.tab == TabSpecs {
+		if m.viewer.tab == TabSpecs {
 			viewportDirty = true
 		}
 	}

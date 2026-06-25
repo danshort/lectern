@@ -117,10 +117,10 @@ func (m *Model) pollNormalModeChanges() tea.Cmd {
 		}
 		if p, err := m.loader.LoadFrom(m.root); err == nil {
 			m.project = p
-			m.changeIdx = 0
+			m.viewer.changeIdx = 0
 			for i, ch := range p.Changes {
 				if ch.Name == currentName {
-					m.changeIdx = i
+					m.viewer.changeIdx = i
 					break
 				}
 			}
@@ -128,7 +128,7 @@ func (m *Model) pollNormalModeChanges() tea.Cmd {
 				return nil
 			}
 			m.renderCache = make(map[Tab]string)
-			m.tab = m.defaultTab()
+			m.viewer.tab = m.defaultTab()
 			m.loadTaskItems()
 			return m.loadViewport()
 		}
@@ -152,7 +152,7 @@ func (m *Model) pollNormalModeContent() tea.Cmd {
 		if cursorText != "" {
 			m.tasks.Cursor = openspec.FindCursorByText(m.tasks.Items, cursorText)
 		}
-		if m.tab == TabTasks {
+		if m.viewer.tab == TabTasks {
 			m.refreshTasksViewport()
 		}
 	}
@@ -179,7 +179,7 @@ func (m *Model) enterIndex() {
 	m.index.ExpandedArchives = make(map[int]bool)
 	m.buildIndexItems()
 	m.index.Cursor = 0
-	m.mode = ModeIndex
+	m.setMode(ModeIndex)
 	m.vp.SetHeight(m.contentHeight())
 	m.refreshIndexViewport()
 }
@@ -685,33 +685,32 @@ func (m Model) activateIndexItem(item indexItem) (tea.Model, tea.Cmd) {
 	m.renderCache = make(map[Tab]string)
 	switch item.kind {
 	case indexKindActive:
-		m.changeIdx = item.idx
-		m.mode = ModeNormal
-		m.tab = m.defaultTab()
-		m.specIdx = 0
+		m.viewer.changeIdx = item.idx
+		m.setMode(ModeNormal)
+		m.viewer.tab = m.defaultTab()
+		m.viewer.specIdx = 0
 		m.loadTaskItems()
 	case indexKindSpec:
-		m.specViewer.Cursor = item.idx
-		m.specViewer.JumpTarget = ""
-		m.specViewer.FocusMode = false
-		m.specViewer.ReqCursor = 0
-		m.mode = ModeViewingSpec
+		// Focus state is cleared by setMode on every spec-mode exit, so a plain
+		// spec view enters with focus already off — no reset needed here.
+		m.spec.Cursor = item.idx
+		m.setMode(ModeViewingSpec)
 	case indexKindRequirement:
-		m.specViewer.Cursor = item.idx
-		m.specViewer.JumpTarget = m.projectSpecs[item.idx].RequirementNames[item.reqIdx]
-		m.specViewer.FocusMode = true
-		m.specViewer.ReqCursor = item.reqIdx
-		m.mode = ModeViewingSpec
+		m.spec.Cursor = item.idx
+		m.spec.JumpTarget = m.projectSpecs[item.idx].RequirementNames[item.reqIdx]
+		m.spec.FocusMode = true
+		m.spec.ReqCursor = item.reqIdx
+		m.setMode(ModeViewingSpec)
 	case indexKindArchivedArtifact:
 		m.index.ArchiveCursor = item.idx
-		m.tab = Tab(item.reqIdx)
-		m.specIdx = 0
-		m.mode = ModeViewingArchive
+		m.viewer.tab = Tab(item.reqIdx)
+		m.viewer.specIdx = 0
+		m.setMode(ModeViewingArchive)
 	case indexKindArchived:
 		m.index.ArchiveCursor = item.idx
-		m.tab = firstAvailableTab(m.index.ArchiveChanges[item.idx])
-		m.specIdx = 0
-		m.mode = ModeViewingArchive
+		m.viewer.tab = firstAvailableTab(m.index.ArchiveChanges[item.idx])
+		m.viewer.specIdx = 0
+		m.setMode(ModeViewingArchive)
 	}
 	return m.commitStateChange()
 }
@@ -760,7 +759,7 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case "i":
 		m.prevMode = m.mode
-		m.mode = ModeViewingConfig
+		m.setMode(ModeViewingConfig)
 		return m.commitStateChange()
 
 	case "w":

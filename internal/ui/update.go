@@ -8,6 +8,19 @@ import (
 	"github.com/danshort/lectern/internal/openspec"
 )
 
+// Receiver convention
+//
+// The Update entry point and the dispatchKey / update* handlers are VALUE
+// receivers (func (m Model) …): each mutates its own copy of m and MUST return
+// it (return m, cmd). A handler that mutates m and forgets to return it silently
+// drops the change — there is no compiler warning, so always thread m through.
+//
+// Helpers with a POINTER receiver (func (m *Model) …, e.g. setMode, enterIndex,
+// mergeReloadedChange, loadTaskItems) mutate in place and are called for their
+// effect. A value-receiver handler may call them freely because its receiver
+// copy is addressable. Do not mix the two forms in one function: a method that
+// both mutates via *Model and returns a Model is a trap.
+
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
@@ -28,7 +41,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case renderedMsg:
 		m.renderCache[msg.tab] = msg.content
 		m.loading = false
-		if m.tab == msg.tab {
+		if m.viewer.tab == msg.tab {
 			m.vp.SetContent(msg.content)
 			m.vp.GotoTop()
 		}
@@ -66,22 +79,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// in case the spec list shrank.
 			if specs, err := m.loader.LoadProjectSpecsFrom(m.root); err == nil {
 				m.projectSpecs = specs
-				if m.specViewer.Cursor >= len(m.projectSpecs) {
-					m.specViewer.Cursor = len(m.projectSpecs) - 1
+				if m.spec.Cursor >= len(m.projectSpecs) {
+					m.spec.Cursor = len(m.projectSpecs) - 1
 				}
-				if m.specViewer.Cursor < 0 {
-					m.specViewer.Cursor = 0
+				if m.spec.Cursor < 0 {
+					m.spec.Cursor = 0
 				}
 			}
 			return m, m.loadViewport()
 		}
 		if m.viewingWorktreeChange {
 			// A foreign worktree change was edited. Reload it into
-			// worktreeViewChange — NOT m.project.Changes[m.changeIdx], which
+			// worktreeViewChange — NOT m.project.Changes[m.viewer.changeIdx], which
 			// mergeReloadedChange would target — so the rooted project's state
 			// is never overwritten with the sibling worktree's content.
 			m.worktreeViewChange = m.loader.ReloadChange(m.worktreeViewChange)
-			delete(m.renderCache, m.tab)
+			delete(m.renderCache, m.viewer.tab)
 			return m, m.loadViewport()
 		}
 		ch := m.current()
@@ -153,4 +166,49 @@ func (m Model) dispatchKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) commitStateChange() (tea.Model, tea.Cmd) {
 	m.vp.SetHeight(m.contentHeight())
 	return m, m.loadViewport()
+}
+
+// setMode transitions the model to next and is the ONLY place m.mode is
+// assigned. It enforces the state invariants each mode owns so a caller cannot
+// leave stale state from the outgoing mode:
+//   - leaving ModeViewingSpec clears the requirement-focus state (FocusMode,
+//     JumpTarget, ReqCursor) so it cannot leak into a later spec view;
+//   - entering a tabbed mode (ModeNormal / ModeViewingArchive) clamps the
+//     selected tab to an available one and the spec index into range;
+//   - entering ModeViewingSpec clamps the spec cursor into the project specs.
+//
+// It deliberately does NOT touch renderCache: cache invalidation policy stays
+// with callers, which vary it on purpose (tab switches keep the cache for an
+// instant return; moveSpec drops only TabSpecs; activateIndexItem drops all).
+// The mode is assigned before the clamps run so current()/tabAvailable() resolve
+// against the destination mode. Cursor clamps are safety nets — no-ops when the
+// caller has already set a valid cursor.
+func (m *Model) setMode(next Mode) {
+	prev := m.mode
+	m.mode = next
+
+	if prev == ModeViewingSpec && next != ModeViewingSpec {
+		m.spec.FocusMode = false
+		m.spec.JumpTarget = ""
+		m.spec.ReqCursor = 0
+	}
+
+	switch next {
+	case ModeNormal, ModeViewingArchive:
+		if ch := m.current(); ch != nil {
+			if !m.tabAvailable(m.viewer.tab) {
+				m.viewer.tab = m.defaultTab()
+			}
+			if m.viewer.specIdx < 0 || m.viewer.specIdx >= len(ch.SpecFiles) {
+				m.viewer.specIdx = 0
+			}
+		}
+	case ModeViewingSpec:
+		switch n := len(m.projectSpecs); {
+		case n == 0, m.spec.Cursor < 0:
+			m.spec.Cursor = 0
+		case m.spec.Cursor >= n:
+			m.spec.Cursor = n - 1
+		}
+	}
 }

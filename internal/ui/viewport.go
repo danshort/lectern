@@ -24,7 +24,7 @@ func (m *Model) loadViewport() tea.Cmd {
 		return m.loadViewportForConfig()
 	case m.mode == ModeViewingSpec:
 		return m.loadViewportForSpec()
-	case m.tab == TabTasks && m.mode == ModeNormal:
+	case m.viewer.tab == TabTasks && m.mode == ModeNormal:
 		return m.loadViewportForTasks()
 	default:
 		return m.loadViewportForArtifact()
@@ -74,11 +74,11 @@ func (m *Model) loadViewportForConfig() tea.Cmd {
 }
 
 func (m *Model) loadViewportForSpec() tea.Cmd {
-	if m.specViewer.Cursor >= len(m.projectSpecs) {
+	if m.spec.Cursor >= len(m.projectSpecs) {
 		m.vp.SetContent("  (spec not available)")
 		return nil
 	}
-	raw := m.projectSpecs[m.specViewer.Cursor].Content
+	raw := m.projectSpecs[m.spec.Cursor].Content
 	if raw == "" {
 		m.vp.SetContent("  (spec not available)")
 		return nil
@@ -88,8 +88,8 @@ func (m *Model) loadViewportForSpec() tea.Cmd {
 	width := m.renderWidth()
 	m.ensureRenderer(width)
 	if m.glamourRenderer == nil {
-		if m.specViewer.FocusMode {
-			block := openspec.ExtractRequirement(raw, m.specViewer.JumpTarget)
+		if m.spec.FocusMode {
+			block := openspec.ExtractRequirement(raw, m.spec.JumpTarget)
 			if block == "" {
 				block = "  (spec not available)"
 			}
@@ -98,8 +98,8 @@ func (m *Model) loadViewportForSpec() tea.Cmd {
 		return func() tea.Msg { return specRenderedMsg{content: raw} }
 	}
 
-	if m.specViewer.FocusMode {
-		jumpTarget := m.specViewer.JumpTarget
+	if m.spec.FocusMode {
+		jumpTarget := m.spec.JumpTarget
 		return func() tea.Msg {
 			block := openspec.ExtractRequirement(raw, jumpTarget)
 			if block == "" {
@@ -113,12 +113,12 @@ func (m *Model) loadViewportForSpec() tea.Cmd {
 		}
 	}
 
-	jumpTarget := m.specViewer.JumpTarget
+	jumpTarget := m.spec.JumpTarget
 	renderInput := raw
 	// An unreadable spec carries placeholder content, not a real spec — a read
 	// failure is not a structural one, so skip the validation banner (it would
 	// spuriously report "missing Purpose/Requirements"). Mirrors the ⚠ marker.
-	unreadable := m.projectSpecs[m.specViewer.Cursor].ReadErr != nil
+	unreadable := m.projectSpecs[m.spec.Cursor].ReadErr != nil
 	if errs := openspec.ValidateSpec(raw); !unreadable && len(errs) > 0 {
 		var b strings.Builder
 		b.WriteString("> ⚠ **Validation errors**\n>\n")
@@ -152,7 +152,7 @@ func (m *Model) loadViewportForTasks() tea.Cmd {
 }
 
 func (m *Model) loadViewportForArtifact() tea.Cmd {
-	if cached, ok := m.renderCache[m.tab]; ok {
+	if cached, ok := m.renderCache[m.viewer.tab]; ok {
 		m.vp.SetContent(cached)
 		return nil
 	}
@@ -163,14 +163,14 @@ func (m *Model) loadViewportForArtifact() tea.Cmd {
 		return nil
 	}
 	var raw string
-	switch m.tab {
+	switch m.viewer.tab {
 	case TabProposal:
 		raw = ch.Proposal.Content
 	case TabDesign:
 		raw = ch.Design.Content
 	case TabSpecs:
-		if m.specIdx < len(ch.SpecFiles) {
-			raw = ch.SpecFiles[m.specIdx].Content
+		if m.viewer.specIdx < len(ch.SpecFiles) {
+			raw = ch.SpecFiles[m.viewer.specIdx].Content
 		}
 	case TabTasks:
 		raw = ch.Tasks.Content
@@ -183,7 +183,7 @@ func (m *Model) loadViewportForArtifact() tea.Cmd {
 	m.loading = true
 	m.vp.SetContent(raw)
 
-	tab := m.tab
+	tab := m.viewer.tab
 	width := m.renderWidth()
 	m.ensureRenderer(width)
 	if m.glamourRenderer == nil {

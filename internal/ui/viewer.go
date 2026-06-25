@@ -16,7 +16,7 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case "i":
 		m.prevMode = m.mode
-		m.mode = ModeViewingConfig
+		m.setMode(ModeViewingConfig)
 		return m.commitStateChange()
 
 	case "a", "esc":
@@ -25,7 +25,7 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if m.viewingWorktreeChange {
 			m.viewingWorktreeChange = false
 			m.renderCache = make(map[Tab]string)
-			m.mode = ModeWorktrees
+			m.setMode(ModeWorktrees)
 			m.vp.SetHeight(m.contentHeight())
 			m.refreshWorktreesViewport()
 			return m, nil
@@ -35,32 +35,32 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case "h":
 		if len(m.project.Changes) > 0 {
-			m.changeIdx = (m.changeIdx - 1 + len(m.project.Changes)) % len(m.project.Changes)
+			m.viewer.changeIdx = (m.viewer.changeIdx - 1 + len(m.project.Changes)) % len(m.project.Changes)
 			m.renderCache = make(map[Tab]string)
 			m.loadTaskItems()
-			m.tab = m.defaultTab()
-			m.specIdx = 0
+			m.viewer.tab = m.defaultTab()
+			m.viewer.specIdx = 0
 			return m.commitStateChange()
 		}
 
 	case "l":
 		if len(m.project.Changes) > 0 {
-			m.changeIdx = (m.changeIdx + 1) % len(m.project.Changes)
+			m.viewer.changeIdx = (m.viewer.changeIdx + 1) % len(m.project.Changes)
 			m.renderCache = make(map[Tab]string)
 			m.loadTaskItems()
-			m.tab = m.defaultTab()
-			m.specIdx = 0
+			m.viewer.tab = m.defaultTab()
+			m.viewer.specIdx = 0
 			return m.commitStateChange()
 		}
 
 	case "1":
 		if m.tabAvailable(TabProposal) {
-			m.tab = TabProposal
+			m.viewer.tab = TabProposal
 			return m.commitStateChange()
 		}
 	case "2":
 		if m.tabAvailable(TabDesign) {
-			m.tab = TabDesign
+			m.viewer.tab = TabDesign
 			return m.commitStateChange()
 		}
 	case "3":
@@ -68,12 +68,12 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		// returning to the specs tab keeps the last-viewed spec; it only resets
 		// on a change switch (h/l). Spec switching is the job of [ / ] below.
 		if m.tabAvailable(TabSpecs) {
-			m.tab = TabSpecs
+			m.viewer.tab = TabSpecs
 			return m.commitStateChange()
 		}
 	case "4":
 		if m.tabAvailable(TabTasks) {
-			m.tab = TabTasks
+			m.viewer.tab = TabTasks
 			return m.commitStateChange()
 		}
 
@@ -86,23 +86,23 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	case "tab", "right":
 		// Right arrow mirrors Tab as secondary tab navigation.
-		nxt := m.nextAvailableTab(m.tab, 1)
-		if nxt != m.tab {
-			m.tab = nxt
+		nxt := m.nextAvailableTab(m.viewer.tab, 1)
+		if nxt != m.viewer.tab {
+			m.viewer.tab = nxt
 			return m.commitStateChange()
 		}
 	case "shift+tab", "left":
 		// Left arrow mirrors Shift+Tab as secondary tab navigation.
-		prv := m.nextAvailableTab(m.tab, -1)
-		if prv != m.tab {
-			m.tab = prv
+		prv := m.nextAvailableTab(m.viewer.tab, -1)
+		if prv != m.viewer.tab {
+			m.viewer.tab = prv
 			return m.commitStateChange()
 		}
 
 	case "j", "down":
 		// The interactive task cursor only exists in normal mode; archived
 		// changes render tasks as read-only markdown, so scroll instead.
-		if m.tab == TabTasks && m.mode == ModeNormal {
+		if m.viewer.tab == TabTasks && m.mode == ModeNormal {
 			m.moveCursorDown()
 			m.refreshTasksViewport()
 		} else {
@@ -110,7 +110,7 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "k", "up":
-		if m.tab == TabTasks && m.mode == ModeNormal {
+		if m.viewer.tab == TabTasks && m.mode == ModeNormal {
 			m.moveCursorUp()
 			m.refreshTasksViewport()
 		} else {
@@ -118,12 +118,12 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "space":
-		if m.tab == TabTasks && m.mode == ModeNormal {
+		if m.viewer.tab == TabTasks && m.mode == ModeNormal {
 			return m, m.doToggle()
 		}
 
 	case "e":
-		if m.tabAvailable(m.tab) {
+		if m.tabAvailable(m.viewer.tab) {
 			if path := m.artifactPath(); path != "" {
 				return m, m.openInEditor(path)
 			}
@@ -138,7 +138,7 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 // any other tab or when the change has a single spec. Works identically for
 // active and archived changes via current().
 func (m Model) moveSpec(delta int) (tea.Model, tea.Cmd) {
-	if m.tab != TabSpecs {
+	if m.viewer.tab != TabSpecs {
 		return m, nil
 	}
 	ch := m.current()
@@ -146,7 +146,7 @@ func (m Model) moveSpec(delta int) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	n := len(ch.SpecFiles)
-	m.specIdx = (m.specIdx + delta + n) % n
+	m.viewer.specIdx = (m.viewer.specIdx + delta + n) % n
 	delete(m.renderCache, TabSpecs)
 	return m.commitStateChange()
 }

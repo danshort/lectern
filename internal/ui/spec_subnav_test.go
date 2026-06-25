@@ -32,7 +32,7 @@ func specNavModel(mode Mode, names []string) Model {
 	} else {
 		m.project = &openspec.Project{Changes: []openspec.Change{ch}}
 	}
-	m.tab = TabSpecs
+	m.viewer.tab = TabSpecs
 	m.vp = viewport.New(viewport.WithWidth(78), viewport.WithHeight(18))
 	m.vp.SetHeight(m.contentHeight())
 	return m
@@ -44,7 +44,7 @@ func specNavModel(mode Mode, names []string) Model {
 // TestTabRangesMatchRenderedWidths.
 func TestSpecRangesMatchRenderedWidths(t *testing.T) {
 	m := specNavModel(ModeNormal, []string{"alpha", "beta", "gamma"})
-	m.specIdx = 1 // active chip must not change widths (styles share Padding)
+	m.viewer.specIdx = 1 // active chip must not change widths (styles share Padding)
 
 	ranges := m.specRanges()
 	if len(ranges) != 3 {
@@ -85,7 +85,7 @@ func TestSpecChipHitTestRoundTrip(t *testing.T) {
 				}
 				screenX := 1 + col // +1 for the left │ border column
 				res, _ := m.handleMouseClick(tea.MouseClickMsg{Button: tea.MouseLeft, X: screenX, Y: subRow})
-				if got := res.(Model).specIdx; got != i {
+				if got := res.(Model).viewer.specIdx; got != i {
 					t.Errorf("click on %q (x=%d) selected spec %d, want %d", name, screenX, got, i)
 				}
 			}
@@ -97,17 +97,17 @@ func TestSpecChipHitTestRoundTrip(t *testing.T) {
 // chips or past the row) leave the selection unchanged.
 func TestSpecChipClickIgnoredOffChip(t *testing.T) {
 	m := specNavModel(ModeNormal, []string{"alpha", "beta"})
-	m.specIdx = 0
+	m.viewer.specIdx = 0
 	subRow := m.chromeRowIndex(rowSubnav)
 	ranges := m.specRanges()
 	gap := ranges[0].end + 1 // the single-space join between chips
 
 	res, _ := m.handleMouseClick(tea.MouseClickMsg{Button: tea.MouseLeft, X: gap, Y: subRow})
-	if got := res.(Model).specIdx; got != 0 {
+	if got := res.(Model).viewer.specIdx; got != 0 {
 		t.Errorf("click in the gap changed specIdx to %d, want 0", got)
 	}
 	res, _ = m.handleMouseClick(tea.MouseClickMsg{Button: tea.MouseLeft, X: ranges[len(ranges)-1].end + 50, Y: subRow})
-	if got := res.(Model).specIdx; got != 0 {
+	if got := res.(Model).viewer.specIdx; got != 0 {
 		t.Errorf("click past the chips changed specIdx to %d, want 0", got)
 	}
 }
@@ -121,82 +121,82 @@ func TestSpecKeyNavigation(t *testing.T) {
 	t.Run("] advances to the next spec", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
 		m = press(m, "]")
-		if m.specIdx != 1 {
-			t.Errorf("after ] specIdx = %d, want 1", m.specIdx)
+		if m.viewer.specIdx != 1 {
+			t.Errorf("after ] specIdx = %d, want 1", m.viewer.specIdx)
 		}
 	})
 
 	t.Run("[ goes to the previous spec", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
-		m.specIdx = 2
+		m.viewer.specIdx = 2
 		m = press(m, "[")
-		if m.specIdx != 1 {
-			t.Errorf("after [ specIdx = %d, want 1", m.specIdx)
+		if m.viewer.specIdx != 1 {
+			t.Errorf("after [ specIdx = %d, want 1", m.viewer.specIdx)
 		}
 	})
 
 	t.Run("] wraps from last to first", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
-		m.specIdx = 2
+		m.viewer.specIdx = 2
 		m = press(m, "]")
-		if m.specIdx != 0 {
-			t.Errorf("after ] from last specIdx = %d, want 0", m.specIdx)
+		if m.viewer.specIdx != 0 {
+			t.Errorf("after ] from last specIdx = %d, want 0", m.viewer.specIdx)
 		}
 	})
 
 	t.Run("[ wraps from first to last", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
 		m = press(m, "[")
-		if m.specIdx != 2 {
-			t.Errorf("after [ from first specIdx = %d, want 2", m.specIdx)
+		if m.viewer.specIdx != 2 {
+			t.Errorf("after [ from first specIdx = %d, want 2", m.viewer.specIdx)
 		}
 	})
 
 	t.Run("single spec is a no-op", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"only"})
-		if m = press(m, "]"); m.specIdx != 0 {
-			t.Errorf("] with one spec changed specIdx to %d", m.specIdx)
+		if m = press(m, "]"); m.viewer.specIdx != 0 {
+			t.Errorf("] with one spec changed specIdx to %d", m.viewer.specIdx)
 		}
-		if m = press(m, "["); m.specIdx != 0 {
-			t.Errorf("[ with one spec changed specIdx to %d", m.specIdx)
+		if m = press(m, "["); m.viewer.specIdx != 0 {
+			t.Errorf("[ with one spec changed specIdx to %d", m.viewer.specIdx)
 		}
 	})
 
 	t.Run("arrows do not change the spec", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
-		m.specIdx = 1
+		m.viewer.specIdx = 1
 		res, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyRight})
-		if got := res.(Model).specIdx; got != 1 {
+		if got := res.(Model).viewer.specIdx; got != 1 {
 			t.Errorf("→ changed specIdx to %d, want 1", got)
 		}
 		res, _ = m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyLeft})
-		if got := res.(Model).specIdx; got != 1 {
+		if got := res.(Model).viewer.specIdx; got != 1 {
 			t.Errorf("← changed specIdx to %d, want 1", got)
 		}
 	})
 
 	t.Run("3 selects the specs tab without cycling", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
-		m.specIdx = 1
+		m.viewer.specIdx = 1
 		m = press(m, "3")
-		if m.tab != TabSpecs {
-			t.Errorf("3 left tab = %d, want TabSpecs", m.tab)
+		if m.viewer.tab != TabSpecs {
+			t.Errorf("3 left tab = %d, want TabSpecs", m.viewer.tab)
 		}
-		if m.specIdx != 1 {
-			t.Errorf("3 cycled specIdx to %d, want 1 (no cycle)", m.specIdx)
+		if m.viewer.specIdx != 1 {
+			t.Errorf("3 cycled specIdx to %d, want 1 (no cycle)", m.viewer.specIdx)
 		}
 	})
 
 	t.Run("selected spec is preserved across a tab round-trip", func(t *testing.T) {
 		m := specNavModel(ModeNormal, []string{"a", "b", "c"})
-		m.specIdx = 2
+		m.viewer.specIdx = 2
 		m = press(m, "1") // proposal
-		if m.tab != TabProposal {
-			t.Fatalf("1 left tab = %d, want TabProposal", m.tab)
+		if m.viewer.tab != TabProposal {
+			t.Fatalf("1 left tab = %d, want TabProposal", m.viewer.tab)
 		}
 		m = press(m, "3") // back to specs
-		if m.specIdx != 2 {
-			t.Errorf("returning to specs reset specIdx to %d, want 2 (preserved)", m.specIdx)
+		if m.viewer.specIdx != 2 {
+			t.Errorf("returning to specs reset specIdx to %d, want 2 (preserved)", m.viewer.specIdx)
 		}
 	})
 
@@ -209,15 +209,15 @@ func TestSpecKeyNavigation(t *testing.T) {
 		}
 		m := Model{mode: ModeNormal, width: 80, height: 24, vpReady: true, renderCache: map[Tab]string{},
 			project: &openspec.Project{Changes: []openspec.Change{mk("one"), mk("two")}}}
-		m.tab = TabSpecs
-		m.specIdx = 2
+		m.viewer.tab = TabSpecs
+		m.viewer.specIdx = 2
 		m.vp = viewport.New(viewport.WithWidth(78), viewport.WithHeight(18))
 		m = press(m, "l") // next change
-		if m.changeIdx != 1 {
-			t.Fatalf("l left changeIdx = %d, want 1", m.changeIdx)
+		if m.viewer.changeIdx != 1 {
+			t.Fatalf("l left changeIdx = %d, want 1", m.viewer.changeIdx)
 		}
-		if m.specIdx != 0 {
-			t.Errorf("switching change left specIdx = %d, want 0", m.specIdx)
+		if m.viewer.specIdx != 0 {
+			t.Errorf("switching change left specIdx = %d, want 0", m.viewer.specIdx)
 		}
 	})
 }
@@ -254,9 +254,9 @@ func TestActivateIndexResetsSpecIdx(t *testing.T) {
 			m := Model{mode: ModeIndex, width: 80, height: 24, vpReady: true, renderCache: map[Tab]string{}}
 			tc.mk(&m)
 			m.vp = viewport.New(viewport.WithWidth(78), viewport.WithHeight(18))
-			m.specIdx = 2 // stale selection from a previously-viewed change
+			m.viewer.specIdx = 2 // stale selection from a previously-viewed change
 			res, _ := m.activateIndexItem(tc.item)
-			if got := res.(Model).specIdx; got != 0 {
+			if got := res.(Model).viewer.specIdx; got != 0 {
 				t.Errorf("opening from index left specIdx = %d, want 0 (reset)", got)
 			}
 		})
@@ -303,10 +303,10 @@ func TestSpecNavWorktreeChange(t *testing.T) {
 			Name: "wt", Specs: openspec.Artifact{Present: true},
 			SpecFiles: []openspec.NamedSpec{{Name: "a"}, {Name: "b"}},
 		}}
-	m.tab = TabSpecs
+	m.viewer.tab = TabSpecs
 	m.vp = viewport.New(viewport.WithWidth(78), viewport.WithHeight(18))
 	res, _ := m.dispatchKey(tea.KeyPressMsg{Text: "]"})
-	if got := res.(Model).specIdx; got != 1 {
+	if got := res.(Model).viewer.specIdx; got != 1 {
 		t.Errorf("] in worktree-change view specIdx = %d, want 1", got)
 	}
 }
