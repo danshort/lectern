@@ -57,13 +57,14 @@ type renderedConfigMsg struct {
 type tickMsg time.Time
 
 type indexState struct {
-	Items          []indexItem
-	Cursor         int
-	ExpandedSpecs  map[int]bool
-	SortBySuffix   bool
-	Order          []int
-	ArchiveChanges []openspec.Change
-	ArchiveCursor  int
+	Items            []indexItem
+	Cursor           int
+	ExpandedSpecs    map[int]bool
+	ExpandedArchives map[int]bool
+	SortBySuffix     bool
+	Order            []int
+	ArchiveChanges   []openspec.Change
+	ArchiveCursor    int
 
 	FilterText     string
 	FilterActive   bool
@@ -90,12 +91,15 @@ const (
 	indexKindArchived
 	indexKindSpec
 	indexKindRequirement
+	indexKindArchivedArtifact
 )
 
 type indexItem struct {
-	kind   indexItemKind
-	idx    int // into project.Changes (active), archiveChanges (archived), or projectSpecs (spec/requirement)
-	reqIdx int // index into projectSpecs[idx].RequirementNames; only used for indexKindRequirement
+	kind indexItemKind
+	idx  int // into project.Changes (active), archiveChanges (archived/archivedArtifact), or projectSpecs (spec/requirement)
+	// reqIdx carries an index into projectSpecs[idx].RequirementNames for
+	// indexKindRequirement, and the target Tab for indexKindArchivedArtifact.
+	reqIdx int
 }
 
 type Theme struct {
@@ -160,6 +164,7 @@ func New(project *openspec.Project, cfg openspec.ProjectConfig, root string, loa
 			m.errMsg = "error loading project specs: " + specErr.Error()
 		}
 		m.index.ExpandedSpecs = make(map[int]bool)
+		m.index.ExpandedArchives = make(map[int]bool)
 		m.buildIndexItems()
 		m.mode = ModeIndex
 	}
@@ -228,6 +233,25 @@ func firstAvailableTab(ch openspec.Change) Tab {
 		return TabTasks
 	}
 	return TabProposal
+}
+
+// archiveArtifactTabs returns the artifact tabs present on ch, in tab order.
+// It mirrors the presence checks used by firstAvailableTab.
+func archiveArtifactTabs(ch openspec.Change) []Tab {
+	var tabs []Tab
+	if ch.Proposal.Present {
+		tabs = append(tabs, TabProposal)
+	}
+	if ch.Design.Present {
+		tabs = append(tabs, TabDesign)
+	}
+	if ch.Specs.Present {
+		tabs = append(tabs, TabSpecs)
+	}
+	if ch.Tasks.Present {
+		tabs = append(tabs, TabTasks)
+	}
+	return tabs
 }
 
 func (m *Model) tabAvailable(t Tab) bool {

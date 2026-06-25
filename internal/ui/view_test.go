@@ -1165,3 +1165,216 @@ func TestRenderTabBar(t *testing.T) {
 		}
 	})
 }
+
+func newArchiveExpandModel() Model {
+	m := Model{
+		mode:    ModeIndex,
+		width:   80,
+		height:  24,
+		vpReady: true,
+		project: &openspec.Project{},
+		index: indexState{
+			ExpandedSpecs:    make(map[int]bool),
+			ExpandedArchives: make(map[int]bool),
+			ArchiveChanges: []openspec.Change{
+				{
+					Name:        "old-feat",
+					DisplayDate: "01/05/2026",
+					Proposal:    openspec.Artifact{Present: true},
+					Specs:       openspec.Artifact{Present: true},
+					Tasks:       openspec.Artifact{Present: true},
+				},
+			},
+		},
+	}
+	m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+	m.buildIndexItems()
+	return m
+}
+
+func archivedArtifactTabs(items []indexItem) []Tab {
+	var tabs []Tab
+	for _, it := range items {
+		if it.kind == indexKindArchivedArtifact {
+			tabs = append(tabs, Tab(it.reqIdx))
+		}
+	}
+	return tabs
+}
+
+func TestExpandArchivedChange(t *testing.T) {
+	t.Run("space expands into present artifacts in tab order, omitting absent", func(t *testing.T) {
+		m := newArchiveExpandModel()
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeySpace})
+		updated := result.(Model)
+
+		got := archivedArtifactTabs(updated.index.Items)
+		want := []Tab{TabProposal, TabSpecs, TabTasks} // design is absent
+		if len(got) != len(want) {
+			t.Fatalf("expected %d artifact sub-items, got %d (%v)", len(want), len(got), got)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("artifact %d: expected tab %d, got %d", i, want[i], got[i])
+			}
+		}
+		if !updated.index.ExpandedArchives[0] {
+			t.Error("expected archived change 0 to be marked expanded")
+		}
+	})
+
+	t.Run("space again collapses and cursor stays on the archived change", func(t *testing.T) {
+		m := newArchiveExpandModel()
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeySpace})
+		expanded := result.(Model)
+		if expanded.index.Cursor != 0 {
+			t.Fatalf("expected cursor on archived change (0) after expand, got %d", expanded.index.Cursor)
+		}
+
+		result, _ = expanded.dispatchKey(tea.KeyPressMsg{Code: tea.KeySpace})
+		collapsed := result.(Model)
+		if got := archivedArtifactTabs(collapsed.index.Items); len(got) != 0 {
+			t.Errorf("expected no artifact sub-items after collapse, got %v", got)
+		}
+		if collapsed.index.ExpandedArchives[0] {
+			t.Error("expected archived change 0 to be collapsed")
+		}
+		if collapsed.index.Cursor != 0 {
+			t.Errorf("expected cursor to stay on archived change (0), got %d", collapsed.index.Cursor)
+		}
+	})
+
+	t.Run("enter on artifact sub-item opens archive viewer on that tab", func(t *testing.T) {
+		m := newArchiveExpandModel()
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeySpace})
+		m = result.(Model)
+		// Move cursor onto the "specs" sub-item (archived row, proposal, specs, ...).
+		m.index.Cursor = 2
+		if m.index.Items[m.index.Cursor].kind != indexKindArchivedArtifact ||
+			Tab(m.index.Items[m.index.Cursor].reqIdx) != TabSpecs {
+			t.Fatalf("test setup: expected cursor on specs sub-item, got %+v", m.index.Items[m.index.Cursor])
+		}
+
+		result, _ = m.dispatchKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+		opened := result.(Model)
+		if opened.mode != ModeViewingArchive {
+			t.Errorf("expected ModeViewingArchive, got %d", opened.mode)
+		}
+		if opened.tab != TabSpecs {
+			t.Errorf("expected tab TabSpecs, got %d", opened.tab)
+		}
+		if opened.index.ArchiveCursor != 0 {
+			t.Errorf("expected ArchiveCursor 0, got %d", opened.index.ArchiveCursor)
+		}
+	})
+
+	t.Run("filter keeps artifact sub-items visible when parent matches", func(t *testing.T) {
+		m := newArchiveExpandModel()
+		m.index.ExpandedArchives[0] = true
+		m.buildIndexItems()
+
+		artifact := indexItem{kind: indexKindArchivedArtifact, idx: 0, reqIdx: int(TabProposal)}
+		if !m.matchesFilter(artifact, "old-feat") {
+			t.Error("expected artifact sub-item to match parent change name 'old-feat'")
+		}
+		if !m.matchesFilter(artifact, "proposal") {
+			t.Error("expected artifact sub-item to match its artifact label 'proposal'")
+		}
+		if m.matchesFilter(artifact, "zzz") {
+			t.Error("expected artifact sub-item not to match unrelated query 'zzz'")
+		}
+	})
+}
+
+func TestClickArchivedArtifact(t *testing.T) {
+	m := newArchiveExpandModel()
+	m.index.ExpandedArchives[0] = true
+	m.buildIndexItems()
+
+	// Locate the "tasks" sub-item.
+	tasksIdx := -1
+	for i, it := range m.index.Items {
+		if it.kind == indexKindArchivedArtifact && Tab(it.reqIdx) == TabTasks {
+			tasksIdx = i
+			break
+		}
+	}
+	if tasksIdx < 0 {
+		t.Fatal("test setup: tasks sub-item not found")
+	}
+
+	// Hit-testing: the content line for the sub-item must map back to it.
+	found := -1
+	for line := 0; line < 60; line++ {
+		if idx, ok := m.indexItemAtContentLine(line); ok && idx == tasksIdx {
+			found = line
+			break
+		}
+	}
+	if found < 0 {
+		t.Fatal("expected indexItemAtContentLine to resolve the tasks sub-item")
+	}
+
+	// Click it when already selected -> opens archive viewer on the tasks tab.
+	m.index.Cursor = tasksIdx
+	result, _ := m.clickIndexItem(tasksIdx)
+	opened := result.(Model)
+	if opened.mode != ModeViewingArchive {
+		t.Errorf("expected ModeViewingArchive, got %d", opened.mode)
+	}
+	if opened.tab != TabTasks {
+		t.Errorf("expected tab TabTasks, got %d", opened.tab)
+	}
+	if opened.index.ArchiveCursor != 0 {
+		t.Errorf("expected ArchiveCursor 0, got %d", opened.index.ArchiveCursor)
+	}
+}
+
+func TestExpandArchivedChangeNavigationAndEmpty(t *testing.T) {
+	t.Run("j navigates from archived change into its first artifact sub-item", func(t *testing.T) {
+		m := newArchiveExpandModel()
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeySpace})
+		m = result.(Model)
+		if m.index.Cursor != 0 {
+			t.Fatalf("expected cursor on archived change (0) after expand, got %d", m.index.Cursor)
+		}
+
+		result, _ = m.dispatchKey(tea.KeyPressMsg{Text: "j"})
+		moved := result.(Model)
+		if moved.index.Cursor != 1 {
+			t.Fatalf("expected cursor to move to first sub-item (1), got %d", moved.index.Cursor)
+		}
+		item := moved.index.Items[moved.index.Cursor]
+		if item.kind != indexKindArchivedArtifact || Tab(item.reqIdx) != TabProposal {
+			t.Errorf("expected cursor on the proposal artifact sub-item, got %+v", item)
+		}
+	})
+
+	t.Run("space on an archived change with no artifacts adds nothing and keeps cursor", func(t *testing.T) {
+		m := Model{
+			mode:    ModeIndex,
+			width:   80,
+			height:  24,
+			vpReady: true,
+			project: &openspec.Project{},
+			index: indexState{
+				ExpandedSpecs:    make(map[int]bool),
+				ExpandedArchives: make(map[int]bool),
+				ArchiveChanges: []openspec.Change{
+					{Name: "bare-feat", DisplayDate: "02/05/2026"}, // no artifacts present
+				},
+			},
+		}
+		m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+		m.buildIndexItems()
+
+		result, _ := m.dispatchKey(tea.KeyPressMsg{Code: tea.KeySpace})
+		updated := result.(Model)
+		if got := archivedArtifactTabs(updated.index.Items); len(got) != 0 {
+			t.Errorf("expected no artifact sub-items for an artifact-less change, got %v", got)
+		}
+		if updated.index.Cursor != 0 {
+			t.Errorf("expected cursor to stay at 0, got %d", updated.index.Cursor)
+		}
+	})
+}
