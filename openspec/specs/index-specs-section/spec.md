@@ -41,7 +41,7 @@ In `ModeIndex`, the TUI SHALL show a "Specifications" section between the "Activ
 - **WHEN** the mode is `ModeIndex` and active changes, specs, and archived changes exist
 - **THEN** the "Specifications" section appears below "Active Changes" and above "Archived Changes"
 
-### Requirement: Non-selectable specs in the index
+### Requirement: Navigable specs in the index
 Specs listed in the "Specs" section of `ModeIndex` SHALL be navigable. They SHALL be part of `indexItems` with kind `indexKindSpec`, the cursor SHALL be positionable on them with `j`/`k`, and `Enter` SHALL open `ModeViewingSpec` for the spec under the cursor.
 
 #### Scenario: Cursor enters the Specs section
