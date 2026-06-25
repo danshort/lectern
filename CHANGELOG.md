@@ -2,6 +2,22 @@
 
 # Changelog
 
+## [0.17.0](https://github.com/danshort/lectern/compare/v0.16.0...v0.17.0) (2026-06-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* the binary is renamed `speclio` → `lectern`. Reinstall with `brew uninstall speclio && brew install danshort/tap/lectern`.
+
+### Features
+
+* rename the tool and binary from speclio to lectern ([d6e8dea](https://github.com/danshort/lectern/commit/d6e8dea4f91085d29d9265a530b62a8b5067cda0))
+
+
+### Bug Fixes
+
+* **ci:** keep release-please in 0.x for pre-1.0 breaking changes ([#21](https://github.com/danshort/lectern/issues/21)) ([1635f55](https://github.com/danshort/lectern/commit/1635f55ed9a2d92391266723533fe0b48c6d51b0))
+
 ## [0.16.0](https://github.com/danshort/speclio/compare/v0.15.0...v0.16.0) (2026-06-25)
 
 
