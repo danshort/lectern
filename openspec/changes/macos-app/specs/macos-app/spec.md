@@ -19,22 +19,55 @@ The app SHALL obtain changes, tasks, validation results, and worktree data throu
 - **THEN** the parsed result matches the corpus golden output, identical to the Go loader
 
 ### Requirement: Rendered markdown with unreadable-artifact handling
-The app SHALL render artifact markdown natively and SHALL surface an artifact that exists but cannot be read as a placeholder rather than as missing.
+The app SHALL render artifact markdown natively — including tables, fenced code blocks, and nested lists — and SHALL surface an artifact that exists but cannot be read as a placeholder rather than as missing.
 
 #### Scenario: Readable artifact renders
 - **WHEN** an artifact file is present and readable
-- **THEN** its markdown is displayed as formatted content
+- **THEN** its markdown is displayed as formatted content, with tables, code blocks, and nested lists rendered
 
 #### Scenario: Unreadable artifact is flagged
 - **WHEN** an artifact file exists but cannot be read
 - **THEN** the app shows a placeholder indicating the read failure, not an absent artifact
 
+### Requirement: Inline validation banner on specs
+When a spec or change has structural validation errors, the app SHALL surface them inline with the rendered artifact, mirroring the TUI, and SHALL omit the banner for an unreadable artifact (a read failure is not a validation failure).
+
+#### Scenario: Spec with validation errors shows a banner
+- **WHEN** a rendered spec fails structural validation
+- **THEN** the app displays the validation messages together with the artifact content
+
+#### Scenario: Unreadable artifact shows no validation banner
+- **WHEN** an artifact exists but cannot be read
+- **THEN** the app shows the read-failure placeholder and no validation banner
+
+### Requirement: Requirement focus and navigation
+The app SHALL let the user focus a single requirement within a spec and navigate to it, mirroring the TUI's requirement-extraction and jump behavior.
+
+#### Scenario: Focus a single requirement
+- **WHEN** the user selects a requirement in a spec
+- **THEN** the app presents that requirement's block (from its `### Requirement:` heading to the next) and scrolls it into view
+
+### Requirement: Native accessibility
+The app SHALL meet baseline macOS accessibility expectations: VoiceOver labels, keyboard navigation of the sidebar and content, and Dynamic Type / contrast support.
+
+#### Scenario: Keyboard-only navigation
+- **WHEN** the user navigates with the keyboard only
+- **THEN** they can move between the sidebar, artifact list, and content, and toggle a task, without a pointer
+
+#### Scenario: VoiceOver reads the interface
+- **WHEN** VoiceOver is enabled
+- **THEN** changes, artifacts, and controls expose meaningful accessibility labels
+
 ### Requirement: Task toggling that preserves line endings
-The app SHALL let the user toggle a task checkbox in `tasks.md`, writing the change to disk while preserving the file's existing line endings.
+The app SHALL let the user toggle a task checkbox in `tasks.md`, writing the change to disk while preserving the file's existing line endings. Because the app reloads on disk changes, it SHALL re-read and re-parse `tasks.md` immediately before writing so a stale line index cannot toggle the wrong line.
 
 #### Scenario: Toggle a task
 - **WHEN** the user toggles a task in the app
 - **THEN** the corresponding `- [ ]`/`- [x]` marker is flipped in `tasks.md` and the file's original line endings (LF or CRLF) are preserved
+
+#### Scenario: File changed on disk before toggle
+- **WHEN** `tasks.md` was modified by another process after it was rendered and the user then toggles a task
+- **THEN** the app re-reads the current file before writing, so the intended task is toggled rather than a stale line
 
 ### Requirement: Worktrees overview
 The app SHALL present the git worktrees of the project's repository, and SHALL degrade gracefully when git is unavailable or the directory is not a working tree.

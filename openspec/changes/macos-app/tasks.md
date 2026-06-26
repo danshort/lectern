@@ -1,48 +1,55 @@
-## 1. Shared fixture corpus + Go golden test (Phase 1 — stands alone)
+## 1. Shared fixture corpus + Go golden tests (Phase 1 — stands alone)
 
-- [ ] 1.1 Create `testdata/corpus/` with fixture projects: `basic-project`, `crlf-tasks`, `unreadable-artifact`, `malformed-archive-name`, `delta-specs` (cover sort order, archive parse, spec aggregation, validation, CRLF)
-- [ ] 1.2 Add `internal/openspec/golden_test.go`: walk the corpus, run the loader, `json.Marshal` with sorted keys, compare to `golden/*.json`; support a `-update` flag to regenerate
-- [ ] 1.3 Add a byte-exact golden for the toggle write path: `crlf-tasks.after-toggle.tasks.md` (proves CRLF endings are preserved)
-- [ ] 1.4 Add a `validation.json` golden (path → messages) covering `ValidateSpec` and `ValidateChange`
-- [ ] 1.5 Generate goldens, confirm `go test ./internal/openspec/...` passes, wire into existing CI
+- [ ] 1.1 Create `testdata/corpus/` fixtures: `basic-project` (≥3 changes with mixed/equal `Created`, ≥3 spec dirs — exercises sort stability and unsorted `loadSpecs` order), `crlf-tasks` + `lf-tasks` (both with trailing newlines), `unreadable-artifact`, `malformed-archive-name` (`2026-13-99`, `2026-02-29`, `2024-02-29` for calendar validity), `malformed-meta` (bad `.openspec.yaml` → empty `Created`), `config-variants` (absent `rules`, `rules: {}`, multiline context), `delta-specs` (missing proposal, `HasPrefix` headers, empty-named requirement), `worktree-porcelain/*.txt` (captured porcelain text)
+- [ ] 1.2 Write the **serialization contract** doc (no `omitempty`; absent → `null`; empty slice → `[]`; empty map → `{}`; sorted keys; snake_case) and add JSON struct tags to the Go domain types accordingly
+- [ ] 1.3 `internal/openspec/golden_test.go`: golden tests for **every entry point** — `Project` (`*.json`), `ParseTasks` (`tasks.json`, incl. `LineNum`), `ExtractRequirement` (`requirements.json`), `parseWorktreeList` (`worktrees.json`), `ConfigToMarkdown` (`config.md`), validation (`validation.json`); `-update` flag to regenerate
+- [ ] 1.4 Byte-exact toggle write goldens for **both** LF and CRLF fixtures (`*.after-toggle.tasks.md`)
+- [ ] 1.5 Normalize the unreadable-artifact golden (presence + read-error flag + prefix-only content) so it is language-stable
+- [ ] 1.6 Generate goldens, confirm `go test ./internal/openspec/...` passes; keep existing `t.TempDir()` tests; wire into CI
 
 ## 2. OpenSpecKit — Swift domain port (Phase 2)
 
-- [ ] 2.1 Scaffold `macos/OpenSpecKit/` SwiftPM package (library target + test target), no app dependency
-- [ ] 2.2 Port models as `Codable` structs with `CodingKeys` matching the Go JSON field names (snake_case)
-- [ ] 2.3 Define `protocol FileSystem` + `OSFileSystem`, mirroring the Go `fileSystem` interface and not-found semantics
-- [ ] 2.4 Port the loader: `loadFrom`, `loadFromPath`, archive listing, `loadSpecs` (separator, absent-on-empty), config parse
-- [ ] 2.5 Port tasks: `parseTasks`, `findCursorByText`, and a **separate** CRLF-safe `toggleTask` write path
-- [ ] 2.6 Port validation (`validateSpec`, `validateChange`, delta rules) and `extractRequirement`
-- [ ] 2.7 Port worktree porcelain parser + `normalizePath` (symlink resolution) — parser separated from `Process` invocation for testability
-- [ ] 2.8 `OpenSpecKitTests`: point `Loader` at the shared `testdata/corpus/`, encode with `.sortedKeys`, assert byte-equality vs the same `golden/*.json`; assert the toggle write golden
-- [ ] 2.9 Add a macOS CI lane running `swift test`; both Go and Swift golden lanes must be green
+- [ ] 2.1 Scaffold `macos/OpenSpecKit/` SwiftPM package (library + test target), no app dependency; pin Swift toolchain
+- [ ] 2.2 Port models as `Codable` structs with `CodingKeys` matching the Go JSON tags; honor the serialization contract (nil/empty/`[]`/`{}`)
+- [ ] 2.3 `protocol FileSystem` + `OSFileSystem`; `readDir` **sorts by name** (Swift `FileManager` is unsorted); not-found vs other-error distinction
+- [ ] 2.4 Parse YAML with **Yams** (not `Codable`); field-tolerant `.openspec.yaml` (swallow errors → empty `Created`) vs error-propagating `config.yaml`; preserve nil-vs-empty `rules`
+- [ ] 2.5 Port the loader using `components(separatedBy: "\n")` (Go `strings.Split` trailing/empty semantics); `loadFrom`, `loadFromPath` (grandparent `Project.Name`), archive listing (calendar-valid date gate), `loadSpecs` (separator, absent-on-empty), the two different spec-loading error semantics
+- [ ] 2.6 Port tasks: `parseTasks`; **separate** CRLF-safe `toggleTask` write path; `toggleTask` mutates the task list in place (`inout`) and re-reads before writing
+- [ ] 2.7 Port validation (incl. `proposal.Present`, `HasPrefix` headers vs anchored `deltaHeaderRe`, empty-named-requirement skip) and `extractRequirement`
+- [ ] 2.8 Port worktree porcelain parser + `normalizePath` as EvalSymlinks-then-lexical-Clean-fallback (not `resolvingSymlinksInPath`); parser separated from `Process` invocation
+- [ ] 2.9 `OpenSpecKitTests`: run every entry point against the shared `testdata/corpus/`, assert byte-equality vs the same goldens; unit-assert ToggleTask's in-memory mutation (no golden)
+- [ ] 2.10 Add a **required, non-path-filtered** macOS CI lane (`swift test`); both Go and Swift golden lanes green on every PR
 
-## 3. SwiftUI reader shell (Phase 3 — read-only)
+## 3. Architecture decisions (gate Phases 3–5 — resolve before SwiftUI)
 
-- [ ] 3.1 App target `macos/LecternApp/` depending on `OpenSpecKit`; project/folder picker (security-scoped bookmark)
-- [ ] 3.2 `NavigationSplitView`: sidebar of changes → artifacts; detail pane
-- [ ] 3.3 Native markdown rendering of artifacts (`AttributedString` / Swift markdown lib), incl. the `⚠ couldn't read` placeholder state
-- [ ] 3.4 Specs section + project config view (parity with the TUI index)
+- [ ] 3.1 Decide **App Sandbox posture**: Developer-ID non-sandboxed (worktrees + git work; no App Store) vs sandboxed (App Store-eligible; worktree feature needs a helper or is dropped). Document entitlements and the file-access model (security-scoped bookmarks)
+- [ ] 3.2 Decide the **markdown renderer** (swift-markdown + custom SwiftUI views) and its dependency/licensing implications
 
-## 4. Interaction + OS integration (Phase 4)
+## 4. SwiftUI reader shell (Phase 4 — read-only)
 
-- [ ] 4.1 Task checkbox toggle in the UI writing through the CRLF-safe `toggleTask`; integration test on a CRLF fixture
-- [ ] 4.2 Worktrees view via `Process` git invocation with a 5s watchdog; graceful "unavailable" when git is absent
-- [ ] 4.3 FSEvents live reload of `openspec/`; debounce; integration test that an external edit refreshes the view
-- [ ] 4.4 Open-in-editor / reveal-in-Finder affordances (parity with the TUI's `$EDITOR` open)
+- [ ] 4.1 App target `macos/LecternApp/` depending on `OpenSpecKit`; project picker with a security-scoped bookmark per the 3.1 decision
+- [ ] 4.2 `NavigationSplitView`: sidebar of changes → artifacts; detail pane
+- [ ] 4.3 Markdown rendering (tables, code fences, nested lists), the `⚠ couldn't read` placeholder, and the inline validation banner (omitted for unreadable artifacts)
+- [ ] 4.4 Requirement focus/extract + jump-to navigation; specs section + project config view
 
-## 5. Packaging, signing, distribution (Phase 5)
+## 5. Interaction + OS integration (Phase 5)
 
-- [ ] 5.1 Code-sign the `.app` with a Developer ID; produce a `.dmg`
-- [ ] 5.2 Notarize + staple in CI (signing secrets via repo secrets)
-- [ ] 5.3 Publish a Homebrew **cask** alongside the existing CLI formula; document `brew install` for both
-- [ ] 5.4 Extend the release workflow to build/attach the macOS artifacts on release
-- [ ] 5.5 Update `README.md` with the app, screenshots, and install instructions
+- [ ] 5.1 Task checkbox toggle through the CRLF-safe `toggleTask` with a re-read before write; integration test on LF and CRLF fixtures and on an externally-modified file
+- [ ] 5.2 Worktrees view via `Process` git with a 5 s watchdog, within the 3.1 file-access model; graceful "unavailable" when git is absent
+- [ ] 5.3 FSEvents live reload of `openspec/` (debounced); integration test that an external edit refreshes the view
+- [ ] 5.4 Open-in-editor / reveal-in-Finder (subject to the sandbox decision)
 
-## 6. Verification
+## 6. Packaging, signing, distribution (Phase 6)
 
-- [ ] 6.1 Both golden lanes green in CI (Go + Swift) on every PR
-- [ ] 6.2 Manual QA matrix: browse, render, toggle (LF + CRLF files), worktrees, live reload, missing-git, unreadable-artifact
-- [ ] 6.3 Confirm the TUI is byte-for-byte unchanged (no diffs under `internal/ui`, `cmd/`, `internal/openspec` logic)
-- [ ] 6.4 Verify a signed+notarized build installs cleanly past Gatekeeper on a clean machine
+- [ ] 6.1 Code-sign with Developer ID (hardened runtime, entitlements); produce a `.dmg`
+- [ ] 6.2 Notarize + staple in a **decoupled** macOS job that cannot fail the existing goreleaser/CLI release; signing secrets via repo secrets
+- [ ] 6.3 Publish a Homebrew **cask** alongside the CLI formula; document install for both
+- [ ] 6.4 Decide and implement the update mechanism (Sparkle vs `brew upgrade`)
+- [ ] 6.5 Accessibility pass (VoiceOver, keyboard nav, Dynamic Type, contrast); update `README.md` with screenshots
+
+## 7. Verification
+
+- [ ] 7.1 Both golden lanes green in CI (Go + Swift, non-path-filtered) on every PR
+- [ ] 7.2 Manual QA matrix: browse, render (tables/code/lists), validation banner, requirement focus, toggle (LF + CRLF + externally-modified), worktrees, live reload, missing-git, unreadable-artifact
+- [ ] 7.3 Confirm the TUI is unchanged (no diffs under `internal/ui`, `cmd/`, `internal/openspec` logic — only added tests/tags)
+- [ ] 7.4 Verify a signed+notarized build installs cleanly past Gatekeeper on a clean machine
