@@ -1,5 +1,8 @@
-## ADDED Requirements
+# macos-app Specification
 
+## Purpose
+TBD - created by archiving change macos-app. Update Purpose after archive.
+## Requirements
 ### Requirement: Native macOS reader for OpenSpec artifacts
 The project SHALL provide a native macOS application that reads an OpenSpec project from the same `openspec/` layout the TUI reads and presents its changes and artifacts, without modifying or depending on the TUI.
 
@@ -123,6 +126,21 @@ The app SHALL reflect on-disk changes to the open project's `openspec/` tree wit
 - **WHEN** a file under the open project's `openspec/` directory is modified by another process
 - **THEN** the app updates its view to reflect the change, keeping the current selection
 
+### Requirement: Distributable signed build
+The app SHALL be packaged as a `.app` bundle distributed via a Homebrew **cask** alongside the CLI. Signing is phased: until a Developer-ID certificate is available it SHALL be at least **ad-hoc** code-signed (required to run on Apple Silicon); once available it SHALL be **Developer-ID** signed (hardened runtime) and **notarized**. While the distributed build is unnotarized, the install instructions SHALL document the one-time Gatekeeper step; that guidance SHALL be removed once notarized builds ship.
+
+#### Scenario: Build runs on Apple Silicon
+- **WHEN** the app is packaged
+- **THEN** the resulting `.app` carries at least an ad-hoc code signature and launches on Apple Silicon
+
+#### Scenario: First-launch Gatekeeper guidance while unnotarized
+- **WHEN** a user installs an unnotarized build
+- **THEN** the install instructions document the one-time right-click → Open (or quarantine-removal) step
+
+#### Scenario: Notarized build once the certificate exists
+- **WHEN** a Developer-ID certificate and notary credentials are configured
+- **THEN** the release produces a Developer-ID-signed, notarized, stapled build and the Gatekeeper caveat is dropped
+
 ### Requirement: Reveal and open the selected file
 The app SHALL let the user reveal the currently selected item (artifact, project spec, config, or worktree) in Finder and open it in the system default application.
 
@@ -133,3 +151,4 @@ The app SHALL let the user reveal the currently selected item (artifact, project
 #### Scenario: Open in default app
 - **WHEN** the user chooses "Open in Default App" for a file-backed selection
 - **THEN** the file opens in its default application
+
