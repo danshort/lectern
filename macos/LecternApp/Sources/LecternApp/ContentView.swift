@@ -166,8 +166,35 @@ struct DetailView: View {
             } else {
                 Placeholder()
             }
+        case .worktreeArtifact(let wtPath, let name, let kind):
+            if let change = model.worktreeChange(worktreePath: wtPath, changeName: name) {
+                WorktreeArtifactView(change: change, kind: kind)
+                    .id("\(wtPath)#\(name)#\(kind)")
+                    .navigationTitle(name)
+                    .navigationSubtitle("Read-only · \(model.worktree(path: wtPath).map(model.worktreeTitle) ?? "worktree")")
+            } else {
+                Placeholder()
+            }
         case .none:
             Placeholder()
+        }
+    }
+}
+
+// A foreign worktree's change artifact, rendered read-only: specs reuse the
+// (non-writing) SpecContentView; Tasks render as plain markdown rather than the
+// interactive checklist, since cross-worktree writes are out of scope.
+struct WorktreeArtifactView: View {
+    @EnvironmentObject var model: AppModel
+    let change: Change
+    let kind: ArtifactKind
+
+    var body: some View {
+        let artifact = model.artifact(for: ArtifactRef(changeName: change.name, kind: kind), in: change)
+        if case .specFile = kind {
+            SpecContentView(artifact: artifact, issues: artifact.readError ? [] : validateChange(change))
+        } else {
+            ScrollableContent { ArtifactBody(artifact: artifact) }
         }
     }
 }
