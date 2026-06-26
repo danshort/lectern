@@ -20,7 +20,7 @@ Each fixture SHALL have committed golden output covering every public entry poin
 
 #### Scenario: Entry points beyond the Project tree are pinned
 - **WHEN** the goldens are inspected
-- **THEN** they include task parsing (with line numbers), requirement extraction, worktree-porcelain parsing, config-to-markdown, and validation output
+- **THEN** they include task parsing (with line numbers), requirement extraction, worktree-porcelain parsing, config-to-markdown, project-specs (`openspec/specs/`), and validation output
 
 ### Requirement: Cross-language-stable error representation
 Because an unreadable artifact embeds an OS- and locale-specific error string, the golden for that case SHALL normalize the error — recording presence and a read-error flag with a prefix-only content match — so the golden is reproducible across languages rather than pinned to a Go runtime error string.

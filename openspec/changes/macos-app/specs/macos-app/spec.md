@@ -29,6 +29,17 @@ In the Specs mode, the app SHALL list the project's long-lived specs from `opens
 - **WHEN** the user selects the Specs mode
 - **THEN** the app lists the capability specs under `openspec/specs/` and renders the selected spec's `spec.md`
 
+### Requirement: Project configuration view
+When the project has a non-empty `openspec/config.yaml`, the Specs mode SHALL offer a "Project Config" entry that renders the configuration (context and rules) as formatted markdown.
+
+#### Scenario: View project configuration
+- **WHEN** the project has configuration content and the user selects the Project Config entry in the Specs mode
+- **THEN** the app renders the context and rules as markdown
+
+#### Scenario: No configuration
+- **WHEN** the project has no `openspec/config.yaml` (or it is empty)
+- **THEN** no Project Config entry is shown
+
 ### Requirement: Archived changes browsing
 In the Archived Changes mode, the app SHALL list the project's archived changes from `openspec/changes/archive/`, separate from active changes, and let the user open their artifacts.
 
