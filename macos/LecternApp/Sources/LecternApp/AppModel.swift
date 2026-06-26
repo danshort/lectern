@@ -25,11 +25,23 @@ struct ArtifactRef: Hashable {
     let kind: ArtifactKind
 }
 
-// A unified sidebar selection across the heterogeneous modes.
+// What a selected sidebar node resolves to in the detail pane.
 enum Selection: Hashable {
     case artifact(ArtifactRef)
     case projectSpec(String)
     case worktree(String)
+}
+
+// A node in the sidebar tree. Rendered by an OutlineGroup, which manages
+// disclosure, selection, and triangles natively (leaves have nil children and
+// get no triangle) — avoiding the hand-rolled DisclosureGroup glitches.
+struct SidebarNode: Identifiable, Hashable {
+    let id: String
+    let title: String
+    let subtitle: String?
+    let icon: String
+    let prominent: Bool
+    var children: [SidebarNode]?
 }
 
 @MainActor
@@ -37,39 +49,20 @@ final class AppModel: ObservableObject {
     @Published var mode: Mode = .activeChanges {
         didSet {
             if mode != oldValue {
-                seedExpansion()
-                selection = defaultSelection(for: mode)
+                rebuildSidebar()
+                selectDefault()
             }
         }
     }
-    @Published var selection: Selection?
 
-    // Disclosure state lives in the model (not per-row @State), keyed by the
-    // change's unique path, so it survives List view recycling — the cause of
-    // the misrendered/ghosted rows. Active changes start expanded; archived
-    // start collapsed (there are dozens).
-    @Published var expandedChanges: Set<String> = []
-
-    func changeExpansion(_ change: Change) -> Binding<Bool> {
-        Binding(
-            get: { self.expandedChanges.contains(change.path) },
-            set: { open in
-                if open { self.expandedChanges.insert(change.path) }
-                else { self.expandedChanges.remove(change.path) }
-            }
-        )
+    // List selection binds to the node id; `selection` is derived from it.
+    @Published var selectedNodeID: String? {
+        didSet { selection = selectedNodeID.flatMap { idToSelection[$0] } }
     }
+    @Published private(set) var selection: Selection?
 
-    private func seedExpansion() {
-        switch mode {
-        case .activeChanges:
-            expandedChanges = Set((project?.changes ?? []).map { $0.path })
-        case .archivedChanges:
-            expandedChanges = [] // collapsed by default
-        default:
-            break
-        }
-    }
+    @Published private(set) var sidebarNodes: [SidebarNode] = []
+    private var idToSelection: [String: Selection] = [:]
 
     @Published var project: Project?
     @Published var archivedChanges: [Change] = []
@@ -139,8 +132,8 @@ final class AppModel: ObservableObject {
         projectSpecs = (try? loader.loadProjectSpecsFrom(url.path)) ?? []
         loadWorktrees(url.path)
 
-        seedExpansion()
-        selection = defaultSelection(for: mode)
+        rebuildSidebar()
+        selectDefault()
     }
 
     private func loadWorktrees(_ path: String) {
@@ -160,7 +153,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - Per-mode data + default selection
+    // MARK: - Sidebar tree
 
     func changes(for mode: Mode) -> [Change] {
         switch mode {
@@ -170,28 +163,87 @@ final class AppModel: ObservableObject {
         }
     }
 
-    private func defaultSelection(for mode: Mode) -> Selection? {
+    private func rebuildSidebar() {
+        var map: [String: Selection] = [:]
+        let nodes: [SidebarNode]
         switch mode {
         case .activeChanges, .archivedChanges:
-            guard let first = changes(for: mode).first else { return nil }
-            return .artifact(ArtifactRef(changeName: first.name, kind: firstArtifactKind(first)))
+            nodes = changes(for: mode).map { changeNode($0, into: &map) }
         case .specs:
-            guard let first = projectSpecs.first else { return nil }
-            return .projectSpec(first.name)
+            nodes = projectSpecs.map { spec in
+                let id = "spec:\(spec.name)"
+                map[id] = .projectSpec(spec.name)
+                let count = spec.requirementCount
+                return SidebarNode(id: id, title: spec.name,
+                                   subtitle: count > 0 ? "\(count) requirement\(count == 1 ? "" : "s")" : nil,
+                                   icon: "doc.plaintext", prominent: false, children: nil)
+            }
         case .worktrees:
-            guard let first = worktrees.first else { return nil }
-            return .worktree(first.path)
+            nodes = worktrees.map { wt in
+                let id = "wt:\(wt.path)"
+                map[id] = .worktree(wt.path)
+                return SidebarNode(id: id, title: worktreeTitle(wt),
+                                   subtitle: wt.isCurrent ? "current" : (wt.branch.isEmpty ? nil : wt.branch),
+                                   icon: wt.isCurrent ? "checkmark.circle.fill" : "externaldrive",
+                                   prominent: false, children: nil)
+            }
         }
+        sidebarNodes = nodes
+        idToSelection = map
     }
 
-    private func firstArtifactKind(_ change: Change) -> ArtifactKind {
-        if change.proposal.present { return .proposal }
-        if change.design.present { return .design }
-        if let sf = change.specFiles.first { return .specFile(sf.name) }
-        return .tasks
+    private func changeNode(_ c: Change, into map: inout [String: Selection]) -> SidebarNode {
+        var kids: [SidebarNode] = []
+
+        func leaf(_ suffix: String, _ title: String, _ icon: String, _ kind: ArtifactKind) {
+            let id = "\(c.path)#\(suffix)"
+            map[id] = .artifact(ArtifactRef(changeName: c.name, kind: kind))
+            kids.append(SidebarNode(id: id, title: title, subtitle: nil, icon: icon, prominent: false, children: nil))
+        }
+
+        if c.proposal.present { leaf("proposal", "Proposal", "doc.text", .proposal) }
+        if c.design.present { leaf("design", "Design", "pencil.and.outline", .design) }
+        if !c.specFiles.isEmpty {
+            var specKids: [SidebarNode] = []
+            for sf in c.specFiles {
+                let id = "\(c.path)#spec:\(sf.name)"
+                map[id] = .artifact(ArtifactRef(changeName: c.name, kind: .specFile(sf.name)))
+                specKids.append(SidebarNode(id: id, title: sf.name, subtitle: nil,
+                                            icon: "doc.plaintext", prominent: false, children: nil))
+            }
+            let specsID = "\(c.path)#specs"
+            if let first = c.specFiles.first {
+                map[specsID] = .artifact(ArtifactRef(changeName: c.name, kind: .specFile(first.name)))
+            }
+            kids.append(SidebarNode(id: specsID, title: "Specs", subtitle: nil,
+                                    icon: "folder", prominent: false, children: specKids))
+        }
+        if c.tasks.present { leaf("tasks", "Tasks", "checklist", .tasks) }
+
+        // Selecting the change row shows its proposal (or design).
+        if c.proposal.present {
+            map[c.path] = .artifact(ArtifactRef(changeName: c.name, kind: .proposal))
+        } else if c.design.present {
+            map[c.path] = .artifact(ArtifactRef(changeName: c.name, kind: .design))
+        }
+
+        return SidebarNode(id: c.path, title: c.name,
+                           subtitle: c.displayDate.isEmpty ? nil : c.displayDate,
+                           icon: "shippingbox", prominent: true,
+                           children: kids.isEmpty ? nil : kids)
     }
 
-    // MARK: - Resolving selections
+    private func selectDefault() {
+        selectedNodeID = sidebarNodes.first?.id
+    }
+
+    func worktreeTitle(_ wt: Worktree) -> String {
+        if wt.bare { return "(bare)" }
+        if wt.detached { return "(detached)" }
+        return wt.branch.isEmpty ? (wt.path as NSString).lastPathComponent : wt.branch
+    }
+
+    // MARK: - Resolving selections for the detail pane
 
     func change(named name: String) -> Change? {
         changes(for: mode).first { $0.name == name }

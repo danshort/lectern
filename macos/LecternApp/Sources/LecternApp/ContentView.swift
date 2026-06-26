@@ -41,15 +41,12 @@ struct Sidebar: View {
         Group {
             if model.project == nil {
                 EmptyProjectState()
+            } else if model.sidebarNodes.isEmpty {
+                emptyMode
             } else {
-                List(selection: $model.selection) {
-                    switch model.mode {
-                    case .activeChanges, .archivedChanges:
-                        changeList(model.changes(for: model.mode))
-                    case .specs:
-                        specList
-                    case .worktrees:
-                        worktreeList
+                List(selection: $model.selectedNodeID) {
+                    OutlineGroup(model.sidebarNodes, children: \.children) { node in
+                        SidebarRow(node: node)
                     }
                 }
             }
@@ -57,99 +54,34 @@ struct Sidebar: View {
         .frame(minWidth: 220)
     }
 
-    @ViewBuilder
-    private func changeList(_ changes: [Change]) -> some View {
-        if changes.isEmpty {
-            Text("Nothing here").foregroundStyle(.secondary)
-        } else {
-            ForEach(changes, id: \.path) { change in
-                DisclosureGroup(isExpanded: model.changeExpansion(change)) {
-                    ArtifactRows(change: change)
-                } label: {
-                    ChangeLabel(change: change)
+    private var emptyMode: some View {
+        VStack(spacing: 8) {
+            Text(model.mode == .worktrees ? (model.worktreesError ?? "No worktrees") : "Nothing here")
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
+    }
+}
+
+struct SidebarRow: View {
+    let node: SidebarNode
+
+    var body: some View {
+        Label {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(node.title)
+                    .font(node.prominent ? .headline : .body)
+                    .lineLimit(1)
+                if let subtitle = node.subtitle {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary)
                 }
             }
+        } icon: {
+            Image(systemName: node.icon)
         }
-    }
-
-    @ViewBuilder
-    private var specList: some View {
-        if model.projectSpecs.isEmpty {
-            Text("No project specs").foregroundStyle(.secondary)
-        } else {
-            ForEach(model.projectSpecs, id: \.name) { spec in
-                Label(spec.name, systemImage: "doc.plaintext")
-                    .badge(spec.requirementCount)
-                    .tag(Selection.projectSpec(spec.name))
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var worktreeList: some View {
-        if model.worktrees.isEmpty {
-            Text(model.worktreesError ?? "No worktrees").foregroundStyle(.secondary)
-        } else {
-            ForEach(model.worktrees, id: \.path) { wt in
-                Label(worktreeTitle(wt), systemImage: wt.isCurrent ? "checkmark.circle.fill" : "point.3.connected.trianglepath.dotted")
-                    .tag(Selection.worktree(wt.path))
-            }
-        }
-    }
-
-    private func worktreeTitle(_ wt: Worktree) -> String {
-        if wt.bare { return "(bare)" }
-        if wt.detached { return "(detached)" }
-        return wt.branch.isEmpty ? (wt.path as NSString).lastPathComponent : wt.branch
-    }
-}
-
-struct ChangeLabel: View {
-    let change: Change
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(change.name)
-                .font(.headline)
-                .lineLimit(1)
-            if !change.displayDate.isEmpty {
-                Text(change.displayDate)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .help(change.name)
-    }
-}
-
-struct ArtifactRows: View {
-    let change: Change
-
-    var body: some View {
-        if change.proposal.present {
-            row(.proposal, "Proposal", "doc.text")
-        }
-        if change.design.present {
-            row(.design, "Design", "pencil.and.outline")
-        }
-        if !change.specFiles.isEmpty {
-            Label("Specs", systemImage: "folder")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
-            ForEach(change.specFiles, id: \.name) { sf in
-                Label(sf.name, systemImage: "doc.plaintext")
-                    .tag(Selection.artifact(ArtifactRef(changeName: change.name, kind: .specFile(sf.name))))
-                    .padding(.leading, 14)
-            }
-        }
-        if change.tasks.present {
-            row(.tasks, "Tasks", "checklist")
-        }
-    }
-
-    private func row(_ kind: ArtifactKind, _ title: String, _ icon: String) -> some View {
-        Label(title, systemImage: icon)
-            .tag(Selection.artifact(ArtifactRef(changeName: change.name, kind: kind)))
+        .help(node.title)
     }
 }
 
