@@ -183,7 +183,7 @@ struct ArtifactDetail: View {
             SpecContentView(artifact: artifact, issues: artifact.readError ? [] : validateChange(change))
                 .id("\(change.name)/spec/\(name)")
         case .tasks:
-            TasksView(changePath: change.path)
+            TasksView(changePath: change.path, content: change.tasks.content)
                 .id("\(change.path)/tasks")
         default:
             ScrollableContent { ArtifactBody(artifact: model.artifact(for: ref, in: change)) }
@@ -197,6 +197,7 @@ struct ArtifactDetail: View {
 // click can't flip the wrong line (task 5.1).
 struct TasksView: View {
     let changePath: String
+    let content: String   // from the model; changes when the file is reloaded (incl. external edits)
 
     @State private var items: [TaskItem] = []
     @State private var errorText: String?
@@ -238,15 +239,8 @@ struct TasksView: View {
                 }
             }
         }
-        .onAppear(perform: reload)
-    }
-
-    private func reload() {
-        guard let data = FileManager.default.contents(atPath: tasksPath) else {
-            items = []
-            return
-        }
-        items = parseTasks(String(decoding: data, as: UTF8.self))
+        .onAppear { items = parseTasks(content) }
+        .onChange(of: content) { newContent in items = parseTasks(newContent) }
     }
 
     private func toggle(_ item: TaskItem) {
