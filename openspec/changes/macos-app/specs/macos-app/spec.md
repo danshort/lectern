@@ -123,6 +123,17 @@ The app SHALL reflect on-disk changes to the open project's `openspec/` tree wit
 - **WHEN** a file under the open project's `openspec/` directory is modified by another process
 - **THEN** the app updates its view to reflect the change, keeping the current selection
 
+### Requirement: Distributable signed build
+The app SHALL be packaged as a `.app` bundle that is at least **ad-hoc** code-signed (required to run on Apple Silicon) and distributed via a Homebrew **cask** alongside the CLI. Because the build is not notarized yet (no Apple Developer Program — see design), the distribution SHALL document the one-time Gatekeeper step to open it.
+
+#### Scenario: Ad-hoc signed app runs on Apple Silicon
+- **WHEN** the app is packaged
+- **THEN** the resulting `.app` carries at least an ad-hoc code signature and launches on Apple Silicon
+
+#### Scenario: First-launch Gatekeeper guidance
+- **WHEN** a user installs the unnotarized build
+- **THEN** the install instructions document the one-time right-click → Open (or quarantine-removal) step
+
 ### Requirement: Reveal and open the selected file
 The app SHALL let the user reveal the currently selected item (artifact, project spec, config, or worktree) in Finder and open it in the system default application.
 
