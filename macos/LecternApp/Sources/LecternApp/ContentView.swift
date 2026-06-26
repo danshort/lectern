@@ -51,11 +51,11 @@ struct Sidebar: View {
         if change.design.present {
             row(change, .design, "Design", "pencil.and.outline")
         }
+        if !change.specFiles.isEmpty {
+            SpecsGroup(change: change)
+        }
         if change.tasks.present {
             row(change, .tasks, "Tasks", "checklist")
-        }
-        ForEach(change.specFiles, id: \.name) { sf in
-            row(change, .specFile(sf.name), sf.name, "doc.plaintext")
         }
     }
 
@@ -81,6 +81,22 @@ struct Sidebar: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+    }
+}
+
+struct SpecsGroup: View {
+    let change: Change
+    @State private var expanded = true
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $expanded) {
+            ForEach(change.specFiles, id: \.name) { sf in
+                Label(sf.name, systemImage: "doc.plaintext")
+                    .tag(ArtifactRef(changeName: change.name, kind: .specFile(sf.name)))
+            }
+        } label: {
+            Label("Specs", systemImage: "folder")
+        }
     }
 }
 
