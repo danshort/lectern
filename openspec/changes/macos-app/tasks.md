@@ -23,7 +23,7 @@
 ## 3. Architecture decisions (gate Phases 4–6 — resolve before SwiftUI)
 
 - [x] 3.1 **App Sandbox posture — DECIDED: Option C.** Ship Developer-ID **non-sandboxed** now (full features), architected for a later sandbox/App-Store flip: route all FS access through `FileSystem` and all git through a new `GitService` protocol (2.3/2.8), use security-scoped-bookmark access patterns from day one (4.1), and defer the git + sibling-worktree sandbox problem (scope-to-repo-root vs drop vs XPC helper) to the App Store decision (~1 yr out). Don't hard-wire Sparkle as the only updater (App Store bans it) — see 6.4.
-- [ ] 3.2 Decide the **markdown renderer** (swift-markdown + custom SwiftUI views) and its dependency/licensing implications
+- [x] 3.2 **Markdown renderer — DECIDED: swift-markdown + custom SwiftUI views** (Apache-2.0; renders tables/code-fences/nested-lists that `AttributedString` can't).
 
 ## 4. SwiftUI reader shell (Phase 4 — read-only)
 
@@ -41,10 +41,10 @@
 
 ## 6. Packaging, signing, distribution (Phase 6)
 
-- [ ] 6.1 Code-sign with Developer ID (hardened runtime, entitlements); produce a `.dmg`
-- [ ] 6.2 Notarize + staple in a **decoupled** macOS job that cannot fail the existing goreleaser/CLI release; signing secrets via repo secrets
-- [ ] 6.3 Publish a Homebrew **cask** alongside the CLI formula; document install for both
-- [ ] 6.4 Decide and implement the update mechanism (Sparkle vs `brew upgrade`) — per 3.1, do not make Sparkle the *only* path, since a later App Store build bans it and uses App Store updates
+- [ ] 6.1 **Ad-hoc** code-sign (`codesign --sign -`, required for Apple Silicon to run); produce a `.dmg`/zip. Developer-ID signing **deferred** (no Apple Developer account yet — see 3.1/distribution decision)
+- [ ] 6.2 **Deferred:** notarize + staple (requires the Apple Developer account). When added, run it in a **decoupled** macOS job that cannot fail the existing goreleaser/CLI release
+- [ ] 6.3 Publish a Homebrew **cask** alongside the CLI formula; document the first-launch Gatekeeper step (right-click → Open, or `--no-quarantine`) since the build is unnotarized
+- [x] 6.4 **Update mechanism — DECIDED: `brew upgrade` only** (no Sparkle now; nothing foreclosed — App Store updates later if that path is taken)
 - [ ] 6.5 Accessibility pass (VoiceOver, keyboard nav, Dynamic Type, contrast); update `README.md` with screenshots
 
 ## 7. Verification
