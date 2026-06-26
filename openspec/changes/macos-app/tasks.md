@@ -27,9 +27,9 @@
 
 ## 4. SwiftUI reader shell (Phase 4 — read-only)
 
-- [ ] 4.1 App target `macos/LecternApp/` depending on `OpenSpecKit`; project picker that persists a **security-scoped bookmark from day one** (per 3.1) and accesses all files through it, so the model is unchanged if the app is sandboxed later
-- [ ] 4.2 `NavigationSplitView`: sidebar of changes → artifacts; detail pane
-- [ ] 4.3 Markdown rendering (tables, code fences, nested lists), the `⚠ couldn't read` placeholder, and the inline validation banner (omitted for unreadable artifacts)
+- [x] 4.1 App target `macos/LecternApp/` depending on `OpenSpecKit`; project picker that persists a **security-scoped bookmark from day one** (per 3.1) and accesses all files through it, so the model is unchanged if the app is sandboxed later
+- [x] 4.2 `NavigationSplitView`: sidebar of changes → artifacts; detail pane
+- [x] 4.3 Markdown rendering (tables, code fences, nested lists), the `⚠ couldn't read` placeholder, and the inline validation banner (omitted for unreadable artifacts)
 - [ ] 4.4 Requirement focus/extract + jump-to navigation; specs section + project config view
 
 ## 5. Interaction + OS integration (Phase 5)

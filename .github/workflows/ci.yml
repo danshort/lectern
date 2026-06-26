@@ -56,3 +56,7 @@ jobs:
     - name: Swift test (XCTest)
       run: swift test
       working-directory: macos/OpenSpecKit
+
+    - name: Build the app (LecternApp)
+      run: swift build
+      working-directory: macos/LecternApp
