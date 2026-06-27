@@ -12,11 +12,15 @@ When the current selection belongs to a change (an active, archived, or worktree
 - **THEN** no persistent change progress bar is shown
 
 ### Requirement: Per-section task progress
-In the Tasks view, each section heading SHALL show that section's task completion (completed/total of the tasks under it) alongside the heading.
+In the Tasks view, each section heading SHALL show that section's task completion (completed/total of the tasks under it) alongside the heading. The Tasks view SHALL NOT show a separate overall progress bar — the change's overall progress is the persistent bar at the top of the detail pane.
 
 #### Scenario: Section progress shown
 - **WHEN** a tasks file has sections with tasks
 - **THEN** each section heading displays the completed/total for the tasks in that section
+
+#### Scenario: No overall bar in the Tasks view
+- **WHEN** the Tasks view is shown
+- **THEN** it shows per-section progress only, not a separate overall progress bar (overall progress is the persistent detail-pane bar)
 
 ### Requirement: Change progress in the sidebar
 Every change row in the sidebar — active, archived, and worktree changes — SHALL show its task progress (completed/total), so progress is visible without opening the change.

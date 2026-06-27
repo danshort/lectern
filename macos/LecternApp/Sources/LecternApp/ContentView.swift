@@ -281,22 +281,14 @@ struct TasksView: View {
 
     private var tasksPath: String { (changePath as NSString).appendingPathComponent("tasks.md") }
 
-    private var taskItems: [TaskItem] { items.filter { $0.kind == .task } }
-    private var doneCount: Int { taskItems.filter(\.done).count }
-
     var body: some View {
         ScrollableContent {
             if let errorText {
                 Label(errorText, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange).font(.callout)
             }
-            if !taskItems.isEmpty {
-                let total = taskItems.count
-                ProgressView(value: Double(doneCount), total: Double(total)) {
-                    Text("\(doneCount) of \(total) complete").font(.callout).foregroundStyle(.secondary)
-                }
-                .padding(.bottom, 4)
-            }
+            // Overall change progress lives in the persistent bar at the top of
+            // the detail pane (#65); the Tasks view shows only per-section bars.
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 if item.kind == .section {
                     HStack(alignment: .firstTextBaseline) {
