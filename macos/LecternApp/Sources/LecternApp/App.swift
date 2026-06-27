@@ -43,6 +43,13 @@ struct LecternApp: App {
                 }
                 .keyboardShortcut("+", modifiers: .command)
 
+                // Also accept ⌘= (no Shift) — the key most people press to zoom
+                // in; "+" alone only matches ⌘⇧=.
+                Button("Increase Text Size") {
+                    contentFontScale = ContentFont.clamp(contentFontScale + ContentFont.step)
+                }
+                .keyboardShortcut("=", modifiers: .command)
+
                 Button("Decrease Text Size") {
                     contentFontScale = ContentFont.clamp(contentFontScale - ContentFont.step)
                 }

@@ -36,7 +36,7 @@ struct GeneralSettingsView: View {
                             .font(.caption).monospacedDigit().foregroundStyle(.secondary)
                         Spacer()
                         Button("Reset") { scale = ContentFont.defaultScale }
-                            .disabled(scale == ContentFont.defaultScale)
+                            .disabled(abs(scale - ContentFont.defaultScale) < 0.001)
                     }
                     Text("Adjusts only rendered content (proposals, specs, tasks), on top of the system text size.")
                         .font(.caption).foregroundStyle(.secondary)
@@ -46,5 +46,6 @@ struct GeneralSettingsView: View {
         }
         .formStyle(.grouped)
         .frame(width: 440)
+        .onAppear { scale = ContentFont.clamp(scale) } // self-heal an out-of-range stored value
     }
 }
