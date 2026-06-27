@@ -1125,6 +1125,45 @@ func TestEditorReturnClampsCursorWhenSpecListShrinks(t *testing.T) {
 	}
 }
 
+// Regression: returning from the editor must drop the current tab's render
+// cache even when the artifact content is unchanged (an unsaved exit). A resize
+// while the editor was open would otherwise leave a stale render wrapped at the
+// old width. See change invalidate-render-cache-on-editor-return.
+func TestEditorReturnInvalidatesCurrentTabCacheOnUnsavedExit(t *testing.T) {
+	dir := t.TempDir()
+	content := "## Why\nbecause.\n"
+	if err := os.WriteFile(filepath.Join(dir, "proposal.md"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	m := Model{
+		mode:    ModeNormal,
+		loader:  testLoader(),
+		width:   80,
+		vpReady: true,
+		project: &openspec.Project{
+			Changes: []openspec.Change{{
+				Name:     "demo",
+				Path:     dir,
+				Proposal: openspec.Artifact{Present: true, Content: content},
+			}},
+		},
+		renderCache: map[Tab]string{TabProposal: "STALE-ANSI"},
+	}
+	m.viewer = viewerState{tab: TabProposal}
+	m.vp = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+
+	// Disk content is identical to memory: an unsaved exit, so
+	// mergeReloadedChange will not drop the cache — only the unconditional
+	// invalidation should.
+	result, _ := m.Update(editorReturnMsg{})
+	got := result.(Model)
+
+	if _, ok := got.renderCache[TabProposal]; ok {
+		t.Error("expected the current tab's render cache to be dropped on editor return, but it was kept")
+	}
+}
+
 func TestRenderTabBar(t *testing.T) {
 	t.Run("active tab highlighted", func(t *testing.T) {
 		m := &Model{
