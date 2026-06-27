@@ -18,5 +18,5 @@
 ## 5. Spec + verification
 
 - [x] 5.1 Delta spec: ADD requirements for persistent change progress, per-section task progress, and sidebar change progress (modifying `macos-app`)
-- [ ] 5.2 `swift build` green; manual QA (progress consistent across sidebar / persistent bar / Tasks; hidden for non-change views)
+- [x] 5.2 `swift build` green; manual QA (progress consistent across sidebar / persistent bar / Tasks; hidden for non-change views)
 - [x] 5.3 Confirm no domain/golden changes (reused `parseTasks`); Go + Swift lanes unaffected
