@@ -16,10 +16,10 @@
 ## 4. Robustness
 
 - [x] 4.1 Refresh re-surveys; bare worktrees skipped; missing-git still shows the graceful unavailable state
-- [ ] 4.2 Confirm the OutlineGroup expand/collapse stays glitch-free with the deeper tree
+- [x] 4.2 Confirm the OutlineGroup expand/collapse stays glitch-free with the deeper tree
 
 ## 5. Spec + verification
 
 - [x] 5.1 Delta spec: MODIFIED `macos-app` "Worktrees overview" requirement (per-worktree changes + progress + read-only open)
-- [ ] 5.2 `swift build` green; manual QA against the sample worktrees (current + the lectern-wt-* set)
+- [x] 5.2 `swift build` green; manual QA against the sample worktrees (current + the lectern-wt-* set)
 - [x] 5.3 Confirm no domain/golden changes (reused `loadFrom`/`parseTasks`); Go + Swift lanes unaffected
