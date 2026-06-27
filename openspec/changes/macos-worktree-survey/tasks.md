@@ -23,3 +23,10 @@
 - [x] 5.1 Delta spec: MODIFIED `macos-app` "Worktrees overview" requirement (per-worktree changes + progress + read-only open)
 - [x] 5.2 `swift build` green; manual QA against the sample worktrees (current + the lectern-wt-* set)
 - [x] 5.3 Confirm no domain/golden changes (reused `loadFrom`/`parseTasks`); Go + Swift lanes unaffected
+
+## 6. Parity polish (folded in from #62)
+
+- [x] 6.1 Graphical progress bar on worktree change rows in the sidebar (alongside/instead of the textual done/total)
+- [x] 6.2 "(no active changes)" affordance for a non-bare worktree that has an `openspec/` project but zero active changes (distinct from bare / no-project)
+- [x] 6.3 Surface worktree state in the sidebar label: `locked`/`prunable` flags, and a short HEAD SHA for detached worktrees
+- [ ] 6.4 `swift build` green; manual QA against the sample worktrees

@@ -90,12 +90,21 @@ struct SidebarRow: View {
 
     var body: some View {
         Label {
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(node.title)
                     .font(node.prominent ? .headline : .body)
                     .lineLimit(1)
                 if let subtitle = node.subtitle {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                }
+                if let p = node.progress {
+                    HStack(spacing: 6) {
+                        ProgressView(value: Double(p.done), total: Double(max(p.total, 1)))
+                            .progressViewStyle(.linear)
+                            .frame(width: 70)
+                        Text("\(p.done)/\(p.total)").font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .accessibilityLabel("\(p.done) of \(p.total) tasks complete")
                 }
             }
         } icon: {

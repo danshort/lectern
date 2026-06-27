@@ -44,13 +44,30 @@ extension ProjectConfig {
 // A node in the sidebar tree. Rendered by an OutlineGroup, which manages
 // disclosure, selection, and triangles natively (leaves have nil children and
 // get no triangle) — avoiding the hand-rolled DisclosureGroup glitches.
+struct ChangeProgress: Hashable {
+    let done: Int
+    let total: Int
+}
+
 struct SidebarNode: Identifiable, Hashable {
     let id: String
     let title: String
     let subtitle: String?
     let icon: String
     let prominent: Bool
+    var progress: ChangeProgress?   // shown as a small bar (worktree change rows)
     var children: [SidebarNode]?
+
+    init(id: String, title: String, subtitle: String?, icon: String, prominent: Bool,
+         progress: ChangeProgress? = nil, children: [SidebarNode]? = nil) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.prominent = prominent
+        self.progress = progress
+        self.children = children
+    }
 }
 
 @MainActor
@@ -80,6 +97,7 @@ final class AppModel: ObservableObject {
     @Published var worktrees: [Worktree] = []
     @Published var worktreesError: String?
     @Published var worktreeChanges: [String: [Change]] = [:]   // worktree path → its active changes
+    private var worktreesWithProject: Set<String> = []          // worktrees that have an openspec/ project
 
     @Published var rootPath: String?
     @Published var loadError: String?
@@ -181,13 +199,22 @@ final class AppModel: ObservableObject {
             worktrees = []
             worktreesError = "Worktrees unavailable (git not found or not a working tree)."
         }
-        // Survey each non-bare worktree's active changes (task 1.1).
+        // Survey each non-bare worktree's active changes (task 1.1). Track which
+        // worktrees actually have an openspec/ project, to distinguish "project
+        // with no active changes" from "no project" (6.2).
         var survey: [String: [Change]] = [:]
+        var withProject: Set<String> = []
         let loader = Loader()
         for wt in worktrees where !wt.bare {
-            survey[wt.path] = (try? loader.loadFrom(wt.path))?.changes ?? []
+            if let project = try? loader.loadFrom(wt.path) {
+                survey[wt.path] = project.changes
+                withProject.insert(wt.path)
+            } else {
+                survey[wt.path] = []
+            }
         }
         worktreeChanges = survey
+        worktreesWithProject = withProject
     }
 
     private func describe(_ error: Error) -> String {
@@ -213,7 +240,7 @@ final class AppModel: ObservableObject {
         switch mode {
         case .activeChanges, .archivedChanges:
             nodes = changes(for: mode).map { c in
-                changeNode(c, subtitle: nil, into: &map) { .artifact(ArtifactRef(changeName: c.name, kind: $0)) }
+                changeNode(c, subtitle: nil, progress: nil, into: &map) { .artifact(ArtifactRef(changeName: c.name, kind: $0)) }
             }
         case .specs:
             nodes = []
@@ -235,14 +262,22 @@ final class AppModel: ObservableObject {
                 let id = "wt:\(wt.path)"
                 map[id] = .worktree(wt.path)
                 // Children = this worktree's active changes (read-only), each a
-                // change subtree with a task-progress subtitle.
-                let changeKids: [SidebarNode] = (worktreeChanges[wt.path] ?? []).map { c in
-                    changeNode(c, subtitle: progressLabel(c), into: &map) {
+                // change subtree carrying a task-progress bar.
+                var changeKids: [SidebarNode] = (worktreeChanges[wt.path] ?? []).map { c in
+                    changeNode(c, subtitle: nil, progress: progressOf(c), into: &map) {
                         .worktreeArtifact(worktreePath: wt.path, changeName: c.name, kind: $0)
                     }
                 }
+                // A worktree that has a project but no active changes gets an
+                // explicit affordance, distinct from a bare/no-project worktree.
+                if changeKids.isEmpty && worktreesWithProject.contains(wt.path) {
+                    let emptyID = "\(id)#empty"
+                    map[emptyID] = .worktree(wt.path)
+                    changeKids = [SidebarNode(id: emptyID, title: "No active changes", subtitle: nil,
+                                              icon: "tray", prominent: false)]
+                }
                 return SidebarNode(id: id, title: worktreeTitle(wt),
-                                   subtitle: wt.isCurrent ? "current" : (wt.branch.isEmpty ? nil : wt.branch),
+                                   subtitle: worktreeStateLabel(wt),
                                    icon: wt.isCurrent ? "checkmark.circle.fill" : "externaldrive",
                                    prominent: false,
                                    children: changeKids.isEmpty ? nil : changeKids)
@@ -256,7 +291,8 @@ final class AppModel: ObservableObject {
     // kind to the Selection the detail resolves — `.artifact` for the current
     // project, `.worktreeArtifact` for a foreign worktree. `subtitle` overrides
     // the row subtitle (e.g. task progress for worktree changes).
-    private func changeNode(_ c: Change, subtitle: String?, into map: inout [String: Selection],
+    private func changeNode(_ c: Change, subtitle: String?, progress: ChangeProgress?,
+                            into map: inout [String: Selection],
                             selection: (ArtifactKind) -> Selection) -> SidebarNode {
         var kids: [SidebarNode] = []
 
@@ -295,14 +331,25 @@ final class AppModel: ObservableObject {
         return SidebarNode(id: c.path, title: c.name,
                            subtitle: subtitle ?? (c.displayDate.isEmpty ? nil : c.displayDate),
                            icon: "shippingbox", prominent: true,
+                           progress: progress,
                            children: kids.isEmpty ? nil : kids)
     }
 
-    // "done/total" task progress for a change, or nil when it has no tasks.
-    private func progressLabel(_ c: Change) -> String? {
+    // Task progress for a change, or nil when it has no tasks.
+    private func progressOf(_ c: Change) -> ChangeProgress? {
         let tasks = parseTasks(c.tasks.content).filter { $0.kind == .task }
         guard !tasks.isEmpty else { return nil }
-        return "\(tasks.filter(\.done).count)/\(tasks.count)"
+        return ChangeProgress(done: tasks.filter(\.done).count, total: tasks.count)
+    }
+
+    // Worktree state flags for the sidebar subtitle (e.g. "current, locked").
+    private func worktreeStateLabel(_ wt: Worktree) -> String? {
+        let flags = [
+            wt.isCurrent ? "current" : nil,
+            wt.locked ? "locked" : nil,
+            wt.prunable ? "prunable" : nil,
+        ].compactMap { $0 }
+        return flags.isEmpty ? nil : flags.joined(separator: ", ")
     }
 
     private func selectDefault() {
@@ -311,7 +358,7 @@ final class AppModel: ObservableObject {
 
     func worktreeTitle(_ wt: Worktree) -> String {
         if wt.bare { return "(bare)" }
-        if wt.detached { return "(detached)" }
+        if wt.detached { return wt.head.isEmpty ? "(detached)" : "detached @ \(wt.head.prefix(7))" }
         return wt.branch.isEmpty ? (wt.path as NSString).lastPathComponent : wt.branch
     }
 
