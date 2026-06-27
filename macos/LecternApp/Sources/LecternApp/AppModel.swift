@@ -31,6 +31,10 @@ enum Selection: Hashable {
     case projectSpec(String)
     case worktree(String)
     case config
+    // A change (and one of its artifacts) belonging to another worktree —
+    // rendered read-only. Carries the worktree path so it resolves unambiguously
+    // even when two worktrees have a change of the same name.
+    case worktreeArtifact(worktreePath: String, changeName: String, kind: ArtifactKind)
 }
 
 extension ProjectConfig {
@@ -40,13 +44,30 @@ extension ProjectConfig {
 // A node in the sidebar tree. Rendered by an OutlineGroup, which manages
 // disclosure, selection, and triangles natively (leaves have nil children and
 // get no triangle) — avoiding the hand-rolled DisclosureGroup glitches.
+struct ChangeProgress: Hashable {
+    let done: Int
+    let total: Int
+}
+
 struct SidebarNode: Identifiable, Hashable {
     let id: String
     let title: String
     let subtitle: String?
     let icon: String
     let prominent: Bool
+    var progress: ChangeProgress?   // shown as a small bar (worktree change rows)
     var children: [SidebarNode]?
+
+    init(id: String, title: String, subtitle: String?, icon: String, prominent: Bool,
+         progress: ChangeProgress? = nil, children: [SidebarNode]? = nil) {
+        self.id = id
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.prominent = prominent
+        self.progress = progress
+        self.children = children
+    }
 }
 
 @MainActor
@@ -75,6 +96,8 @@ final class AppModel: ObservableObject {
     @Published var projectConfig: ProjectConfig?
     @Published var worktrees: [Worktree] = []
     @Published var worktreesError: String?
+    @Published var worktreeChanges: [String: [Change]] = [:]   // worktree path → its active changes
+    private var worktreesWithProject: Set<String> = []          // worktrees that have an openspec/ project
 
     @Published var rootPath: String?
     @Published var loadError: String?
@@ -167,12 +190,31 @@ final class AppModel: ObservableObject {
 
     private func loadWorktrees(_ path: String) {
         do {
-            worktrees = try ProcessGitService().listWorktrees(root: path)
+            let wts = try ProcessGitService().listWorktrees(root: path)
+            // Current worktree first; preserve git's order for the rest (stable
+            // partition — Swift's sort isn't stable).
+            worktrees = wts.filter(\.isCurrent) + wts.filter { !$0.isCurrent }
             worktreesError = nil
         } catch {
             worktrees = []
             worktreesError = "Worktrees unavailable (git not found or not a working tree)."
         }
+        // Survey each non-bare worktree's active changes (task 1.1). Track which
+        // worktrees actually have an openspec/ project, to distinguish "project
+        // with no active changes" from "no project" (6.2).
+        var survey: [String: [Change]] = [:]
+        var withProject: Set<String> = []
+        let loader = Loader()
+        for wt in worktrees where !wt.bare {
+            if let project = try? loader.loadFrom(wt.path) {
+                survey[wt.path] = project.changes
+                withProject.insert(wt.path)
+            } else {
+                survey[wt.path] = []
+            }
+        }
+        worktreeChanges = survey
+        worktreesWithProject = withProject
     }
 
     private func describe(_ error: Error) -> String {
@@ -197,7 +239,9 @@ final class AppModel: ObservableObject {
         var nodes: [SidebarNode]
         switch mode {
         case .activeChanges, .archivedChanges:
-            nodes = changes(for: mode).map { changeNode($0, into: &map) }
+            nodes = changes(for: mode).map { c in
+                changeNode(c, subtitle: nil, progress: nil, into: &map) { .artifact(ArtifactRef(changeName: c.name, kind: $0)) }
+            }
         case .specs:
             nodes = []
             if let cfg = projectConfig, cfg.hasContent {
@@ -217,22 +261,44 @@ final class AppModel: ObservableObject {
             nodes = worktrees.map { wt in
                 let id = "wt:\(wt.path)"
                 map[id] = .worktree(wt.path)
+                // Children = this worktree's active changes (read-only), each a
+                // change subtree carrying a task-progress bar.
+                var changeKids: [SidebarNode] = (worktreeChanges[wt.path] ?? []).map { c in
+                    changeNode(c, subtitle: nil, progress: progressOf(c), into: &map) {
+                        .worktreeArtifact(worktreePath: wt.path, changeName: c.name, kind: $0)
+                    }
+                }
+                // A worktree that has a project but no active changes gets an
+                // explicit affordance, distinct from a bare/no-project worktree.
+                if changeKids.isEmpty && worktreesWithProject.contains(wt.path) {
+                    let emptyID = "\(id)#empty"
+                    map[emptyID] = .worktree(wt.path)
+                    changeKids = [SidebarNode(id: emptyID, title: "No active changes", subtitle: nil,
+                                              icon: "tray", prominent: false)]
+                }
                 return SidebarNode(id: id, title: worktreeTitle(wt),
-                                   subtitle: wt.isCurrent ? "current" : (wt.branch.isEmpty ? nil : wt.branch),
+                                   subtitle: worktreeStateLabel(wt),
                                    icon: wt.isCurrent ? "checkmark.circle.fill" : "externaldrive",
-                                   prominent: false, children: nil)
+                                   prominent: false,
+                                   children: changeKids.isEmpty ? nil : changeKids)
             }
         }
         sidebarNodes = nodes
         idToSelection = map
     }
 
-    private func changeNode(_ c: Change, into map: inout [String: Selection]) -> SidebarNode {
+    // Builds a change subtree (change → artifacts). `selection` maps an artifact
+    // kind to the Selection the detail resolves — `.artifact` for the current
+    // project, `.worktreeArtifact` for a foreign worktree. `subtitle` overrides
+    // the row subtitle (e.g. task progress for worktree changes).
+    private func changeNode(_ c: Change, subtitle: String?, progress: ChangeProgress?,
+                            into map: inout [String: Selection],
+                            selection: (ArtifactKind) -> Selection) -> SidebarNode {
         var kids: [SidebarNode] = []
 
         func leaf(_ suffix: String, _ title: String, _ icon: String, _ kind: ArtifactKind) {
             let id = "\(c.path)#\(suffix)"
-            map[id] = .artifact(ArtifactRef(changeName: c.name, kind: kind))
+            map[id] = selection(kind)
             kids.append(SidebarNode(id: id, title: title, subtitle: nil, icon: icon, prominent: false, children: nil))
         }
 
@@ -242,13 +308,13 @@ final class AppModel: ObservableObject {
             var specKids: [SidebarNode] = []
             for sf in c.specFiles {
                 let id = "\(c.path)#spec:\(sf.name)"
-                map[id] = .artifact(ArtifactRef(changeName: c.name, kind: .specFile(sf.name)))
+                map[id] = selection(.specFile(sf.name))
                 specKids.append(SidebarNode(id: id, title: sf.name, subtitle: nil,
                                             icon: "doc.plaintext", prominent: false, children: nil))
             }
             let specsID = "\(c.path)#specs"
             if let first = c.specFiles.first {
-                map[specsID] = .artifact(ArtifactRef(changeName: c.name, kind: .specFile(first.name)))
+                map[specsID] = selection(.specFile(first.name))
             }
             kids.append(SidebarNode(id: specsID, title: "Specs", subtitle: nil,
                                     icon: "folder", prominent: false, children: specKids))
@@ -257,15 +323,33 @@ final class AppModel: ObservableObject {
 
         // Selecting the change row shows its proposal (or design).
         if c.proposal.present {
-            map[c.path] = .artifact(ArtifactRef(changeName: c.name, kind: .proposal))
+            map[c.path] = selection(.proposal)
         } else if c.design.present {
-            map[c.path] = .artifact(ArtifactRef(changeName: c.name, kind: .design))
+            map[c.path] = selection(.design)
         }
 
         return SidebarNode(id: c.path, title: c.name,
-                           subtitle: c.displayDate.isEmpty ? nil : c.displayDate,
+                           subtitle: subtitle ?? (c.displayDate.isEmpty ? nil : c.displayDate),
                            icon: "shippingbox", prominent: true,
+                           progress: progress,
                            children: kids.isEmpty ? nil : kids)
+    }
+
+    // Task progress for a change, or nil when it has no tasks.
+    private func progressOf(_ c: Change) -> ChangeProgress? {
+        let tasks = parseTasks(c.tasks.content).filter { $0.kind == .task }
+        guard !tasks.isEmpty else { return nil }
+        return ChangeProgress(done: tasks.filter(\.done).count, total: tasks.count)
+    }
+
+    // Worktree state flags for the sidebar subtitle (e.g. "current, locked").
+    private func worktreeStateLabel(_ wt: Worktree) -> String? {
+        let flags = [
+            wt.isCurrent ? "current" : nil,
+            wt.locked ? "locked" : nil,
+            wt.prunable ? "prunable" : nil,
+        ].compactMap { $0 }
+        return flags.isEmpty ? nil : flags.joined(separator: ", ")
     }
 
     private func selectDefault() {
@@ -274,7 +358,7 @@ final class AppModel: ObservableObject {
 
     func worktreeTitle(_ wt: Worktree) -> String {
         if wt.bare { return "(bare)" }
-        if wt.detached { return "(detached)" }
+        if wt.detached { return wt.head.isEmpty ? "(detached)" : "detached @ \(wt.head.prefix(7))" }
         return wt.branch.isEmpty ? (wt.path as NSString).lastPathComponent : wt.branch
     }
 
@@ -292,6 +376,22 @@ final class AppModel: ObservableObject {
         worktrees.first { $0.path == path }
     }
 
+    func worktreeChange(worktreePath: String, changeName: String) -> Change? {
+        worktreeChanges[worktreePath]?.first { $0.name == changeName }
+    }
+
+    func artifactPath(for kind: ArtifactKind, in change: Change) -> String {
+        func join(_ parts: String...) -> String {
+            parts.dropFirst().reduce(parts.first ?? "") { ($0 as NSString).appendingPathComponent($1) }
+        }
+        switch kind {
+        case .proposal: return join(change.path, "proposal.md")
+        case .design: return join(change.path, "design.md")
+        case .tasks: return join(change.path, "tasks.md")
+        case .specFile(let name): return join(change.path, "specs", name, "spec.md")
+        }
+    }
+
     // The on-disk file (or directory) backing the current selection, for
     // reveal-in-Finder / open-in-editor.
     func currentFilePath() -> String? {
@@ -301,12 +401,10 @@ final class AppModel: ObservableObject {
         switch selection {
         case .artifact(let ref):
             guard let c = change(named: ref.changeName) else { return nil }
-            switch ref.kind {
-            case .proposal: return join(c.path, "proposal.md")
-            case .design: return join(c.path, "design.md")
-            case .tasks: return join(c.path, "tasks.md")
-            case .specFile(let name): return join(c.path, "specs", name, "spec.md")
-            }
+            return artifactPath(for: ref.kind, in: c)
+        case .worktreeArtifact(let wtPath, let name, let kind):
+            guard let c = worktreeChange(worktreePath: wtPath, changeName: name) else { return nil }
+            return artifactPath(for: kind, in: c)
         case .projectSpec(let name):
             guard let root = rootPath else { return nil }
             return join(root, "openspec", "specs", name, "spec.md")
