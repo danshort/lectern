@@ -89,9 +89,11 @@ macos/LecternApp/scripts/package.sh 0.1.0   # → macos/LecternApp/dist/Lectern.
 ```
 
 > **First launch (preview builds):** preview builds are ad-hoc signed but not yet
-> notarized, so Gatekeeper blocks the first open. Right-click **Lectern.app** →
-> **Open** once (or `xattr -dr com.apple.quarantine /Applications/Lectern.app`).
-> This step goes away once notarized builds ship.
+> notarized, so macOS blocks the first open. Easiest fix (any macOS version):
+> `xattr -dr com.apple.quarantine /Applications/Lectern.app`, then open it.
+> Or use **System Settings → Privacy & Security → Open Anyway**. On **macOS 15
+> (Sequoia) and later the old right-click → Open no longer bypasses Gatekeeper**,
+> so use one of those. This step goes away once notarized builds ship.
 
 ---
 

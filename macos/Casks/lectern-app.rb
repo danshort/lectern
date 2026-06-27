@@ -20,10 +20,16 @@ cask "lectern-app" do
   app "Lectern.app"
 
   caveats <<~EOS
-    Preview builds are ad-hoc signed but not yet notarized, so Gatekeeper blocks
-    the first launch. Right-click Lectern in Applications and choose Open, or run:
+    Preview builds are ad-hoc signed but not yet notarized, so macOS blocks the
+    first launch. To open it, either:
 
-      xattr -dr com.apple.quarantine "#{appdir}/Lectern.app"
+      • Terminal (works on every macOS version):
+          xattr -dr com.apple.quarantine "#{appdir}/Lectern.app"
+
+      • Or: open System Settings -> Privacy & Security, scroll to Security, and
+        click "Open Anyway" next to the Lectern message, then launch again.
+        (On macOS 15 Sequoia and later, the old right-click -> Open no longer
+        offers a bypass — use one of the above.)
 
     This step goes away once notarized builds ship.
   EOS

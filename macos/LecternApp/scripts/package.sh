@@ -28,22 +28,33 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$EXEC_NAME"
 sed "s/__VERSION__/$VERSION/g" "$PKG_DIR/Resources/Info.plist" > "$APP/Contents/Info.plist"
 
-# Compile the Icon Composer .icon into the bundle (lectern.icns + Assets.car).
-# Requires an actool that understands .icon (Xcode 26+); if it can't, warn and
-# ship without the icon rather than failing the build.
+# Embed the app icon (lectern.icns + Assets.car) into the bundle.
+#
+# The Icon Composer `.icon` format only compiles with a recent actool (Xcode
+# 26.4+); CI runners lag (e.g. macos-15 ships 26.3), so compiling at build time
+# is not portable. We therefore ship pre-compiled assets checked into
+# Resources/AppIcon (regenerate with scripts/regen-icon.sh on Xcode 26.4+), and
+# only fall back to a live compile if those are absent. A build that can produce
+# NEITHER fails loudly — we never silently ship an icon-less app again.
 ICON="$PKG_DIR/lectern.icon"
-if [ -d "$ICON" ]; then
-    echo "==> compiling app icon ($(basename "$ICON"))"
-    if xcrun actool "$ICON" \
+PREBUILT="$PKG_DIR/Resources/AppIcon"   # committed Assets.car + lectern.icns
+echo "==> embedding app icon"
+if [ -f "$PREBUILT/lectern.icns" ] && [ -f "$PREBUILT/Assets.car" ]; then
+    cp "$PREBUILT/Assets.car" "$PREBUILT/lectern.icns" "$APP/Contents/Resources/"
+    echo "    using committed pre-compiled icon (Resources/AppIcon)"
+elif [ -d "$ICON" ] && xcrun actool "$ICON" \
         --compile "$APP/Contents/Resources" \
         --app-icon lectern \
         --platform macosx \
         --minimum-deployment-target 13.0 \
-        --output-partial-info-plist "$DIST/icon-partial.plist" >/dev/null 2>&1; then
-        echo "    icon compiled into Resources"
-    else
-        echo "    warning: actool could not compile $ICON (needs Xcode 26+); shipping without an icon"
-    fi
+        --output-partial-info-plist "$DIST/icon-partial.plist" >/dev/null 2>&1 \
+        && [ -f "$APP/Contents/Resources/lectern.icns" ]; then
+    echo "    compiled icon from $ICON (actool)"
+else
+    echo "ERROR: could not embed the app icon — no committed Resources/AppIcon and" >&2
+    echo "       actool could not compile $ICON (needs Xcode 26.4+)." >&2
+    echo "       Run scripts/regen-icon.sh on Xcode 26.4+ and commit Resources/AppIcon." >&2
+    exit 1
 fi
 
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
