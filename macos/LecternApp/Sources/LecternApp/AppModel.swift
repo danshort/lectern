@@ -172,9 +172,10 @@ final class AppModel: ObservableObject {
 
     private func loadWorktrees(_ path: String) {
         do {
-            var wts = try ProcessGitService().listWorktrees(root: path)
-            wts.sort { $0.isCurrent && !$1.isCurrent } // current worktree first
-            worktrees = wts
+            let wts = try ProcessGitService().listWorktrees(root: path)
+            // Current worktree first; preserve git's order for the rest (stable
+            // partition — Swift's sort isn't stable).
+            worktrees = wts.filter(\.isCurrent) + wts.filter { !$0.isCurrent }
             worktreesError = nil
         } catch {
             worktrees = []

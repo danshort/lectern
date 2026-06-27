@@ -182,8 +182,9 @@ struct DetailView: View {
 }
 
 // A foreign worktree's change artifact, rendered read-only: specs reuse the
-// (non-writing) SpecContentView; Tasks render as plain markdown rather than the
-// interactive checklist, since cross-worktree writes are out of scope.
+// (non-writing) SpecContentView; Tasks reuse TasksView in read-only mode
+// (progress bar + check state, but not toggleable), since cross-worktree writes
+// are out of scope.
 struct WorktreeArtifactView: View {
     @EnvironmentObject var model: AppModel
     let change: Change
