@@ -10,6 +10,10 @@
     <string>com.danshort.lectern</string>
     <key>CFBundleExecutable</key>
     <string>LecternApp</string>
+    <key>CFBundleIconFile</key>
+    <string>lectern</string>
+    <key>CFBundleIconName</key>
+    <string>lectern</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

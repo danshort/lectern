@@ -24,7 +24,12 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+        # Prefer the newest Xcode (26+ is needed to compile the Icon Composer
+        # .icon app icon; package.sh degrades gracefully on older toolchains).
+        run: |
+          newest="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)"
+          sudo xcode-select -s "${newest:-/Applications/Xcode.app}"
+          xcodebuild -version
 
       - name: Determine version
         id: ver

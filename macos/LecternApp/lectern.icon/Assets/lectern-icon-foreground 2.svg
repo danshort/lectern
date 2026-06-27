@@ -1,0 +1,17 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Foreground only — transparent background. Pair with a #1e2327 background layer in Icon Composer. -->
+  <rect x="340" y="284" width="540" height="56" rx="28" fill="#f4f1ea"/>
+  <rect x="340" y="484" width="420" height="56" rx="28" fill="#f4f1ea"/>
+  <rect x="340" y="684" width="320" height="56" rx="28" fill="#f4f1ea"/>
+
+  <g fill="#6f42c1">
+    <rect x="140" y="288" width="120" height="48" rx="4"/>
+    <rect x="176" y="252" width="48" height="120" rx="4"/>
+  </g>
+
+  <path d="M140 512 C152 484 188 484 200 512 C212 540 248 540 260 512"
+        fill="none" stroke="#6f42c1" stroke-width="48"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="140" y="688" width="120" height="48" rx="4" fill="#6f42c1"/>
+</svg>

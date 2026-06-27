@@ -28,6 +28,24 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/$EXEC_NAME"
 sed "s/__VERSION__/$VERSION/g" "$PKG_DIR/Resources/Info.plist" > "$APP/Contents/Info.plist"
 
+# Compile the Icon Composer .icon into the bundle (lectern.icns + Assets.car).
+# Requires an actool that understands .icon (Xcode 26+); if it can't, warn and
+# ship without the icon rather than failing the build.
+ICON="$PKG_DIR/lectern.icon"
+if [ -d "$ICON" ]; then
+    echo "==> compiling app icon ($(basename "$ICON"))"
+    if xcrun actool "$ICON" \
+        --compile "$APP/Contents/Resources" \
+        --app-icon lectern \
+        --platform macosx \
+        --minimum-deployment-target 13.0 \
+        --output-partial-info-plist "$DIST/icon-partial.plist" >/dev/null 2>&1; then
+        echo "    icon compiled into Resources"
+    else
+        echo "    warning: actool could not compile $ICON (needs Xcode 26+); shipping without an icon"
+    fi
+fi
+
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 if [ "$SIGN_IDENTITY" = "-" ]; then
     echo "==> ad-hoc code-signing (set SIGN_IDENTITY=<Developer ID> for distribution)"
