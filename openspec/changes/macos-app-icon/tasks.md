@@ -9,4 +9,4 @@
 
 - [x] 2.1 Delta spec: ADD an "App icon" requirement to `macos-app`
 - [x] 2.2 `package.sh 0.1.0` produces a bundle containing `Assets.car` + `lectern.icns` with `CFBundleIconName` set; app still launches
-- [ ] 2.3 Manual QA: the packaged app shows the icon in Finder / Dock
+- [x] 2.3 Manual QA: the packaged app shows the icon in Finder / Dock
