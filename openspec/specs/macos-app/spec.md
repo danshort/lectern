@@ -143,7 +143,7 @@ The app SHALL reflect on-disk changes to the open project's `openspec/` tree wit
 - **THEN** the app updates its view to reflect the change, keeping the current selection
 
 ### Requirement: Distributable signed build
-The app SHALL be packaged as a `.app` bundle distributed via a Homebrew **cask** alongside the CLI. Signing is phased: until a Developer-ID certificate is available it SHALL be at least **ad-hoc** code-signed (required to run on Apple Silicon); once available it SHALL be **Developer-ID** signed (hardened runtime) and **notarized**. While the distributed build is unnotarized, the install instructions SHALL document the one-time Gatekeeper step; that guidance SHALL be removed once notarized builds ship.
+The app SHALL be packaged as a `.app` bundle distributed via a Homebrew **cask** alongside the CLI. Signing is phased: until a Developer-ID certificate is available it SHALL be at least **ad-hoc** code-signed (required to run on Apple Silicon); once available it SHALL be **Developer-ID** signed (hardened runtime) and **notarized**. While the distributed build is unnotarized, the install instructions SHALL document a one-time step to open it past Gatekeeper that is valid on current macOS; that guidance SHALL be removed once notarized builds ship.
 
 #### Scenario: Build runs on Apple Silicon
 - **WHEN** the app is packaged
@@ -151,7 +151,7 @@ The app SHALL be packaged as a `.app` bundle distributed via a Homebrew **cask**
 
 #### Scenario: First-launch Gatekeeper guidance while unnotarized
 - **WHEN** a user installs an unnotarized build
-- **THEN** the install instructions document the one-time right-click → Open (or quarantine-removal) step
+- **THEN** the install instructions document a one-time step that works on current macOS (removing the quarantine attribute, or System Settings → Privacy & Security → Open Anyway), and do not rely on the removed right-click → Open bypass
 
 #### Scenario: Notarized build once the certificate exists
 - **WHEN** a Developer-ID certificate and notary credentials are configured
@@ -198,15 +198,19 @@ Every change row in the sidebar — active, archived, and worktree changes — S
 - **THEN** each change row shows its completed/total task progress, consistent with worktree-change rows
 
 ### Requirement: App icon
-The packaged `.app` SHALL bundle the project's app icon, compiled from the Icon Composer source (`lectern.icon`) into the bundle and referenced by `Info.plist`, so the app shows proper branding in Finder, the Dock, and About. When the build toolchain cannot compile the icon format, packaging SHALL warn and still produce a working (icon-less) build rather than fail.
+The packaged `.app` SHALL bundle the project's app icon (`Assets.car` + `lectern.icns`, referenced by `Info.plist` via `CFBundleIconName`/`CFBundleIconFile`) so the app shows proper branding in Finder, the Dock, and About. The icon SHALL be embedded independently of the build toolchain by shipping pre-compiled assets (regenerated from the `lectern.icon` source when it changes). If packaging can embed neither the committed pre-compiled assets nor a freshly compiled icon, it SHALL fail rather than produce an icon-less build.
 
 #### Scenario: Packaged app includes its icon
-- **WHEN** the app is packaged on a toolchain that supports the icon format
-- **THEN** the bundle contains the compiled icon (`Assets.car` + `lectern.icns`) and `Info.plist` references it via `CFBundleIconName`
+- **WHEN** the app is packaged
+- **THEN** the bundle contains the compiled icon (`Assets.car` + `lectern.icns`) and `Info.plist` references it
 
-#### Scenario: Older toolchain degrades gracefully
-- **WHEN** the build toolchain cannot compile the `.icon`
-- **THEN** packaging warns and still produces a working build without the icon, rather than failing
+#### Scenario: Icon does not depend on the build toolchain
+- **WHEN** the app is packaged on a runner whose toolchain cannot compile the `.icon` format
+- **THEN** the committed pre-compiled icon assets are used, so the build still carries the icon
+
+#### Scenario: Missing icon fails the build
+- **WHEN** packaging can embed neither the committed assets nor a freshly compiled icon
+- **THEN** packaging fails with an error rather than silently shipping an icon-less build
 
 ### Requirement: Settings window
 The app SHALL provide a standard macOS Settings window, opened via the "Settings…" menu item and ⌘,, as the home for user preferences. Preferences set there SHALL persist across launches.
