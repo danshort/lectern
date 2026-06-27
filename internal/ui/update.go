@@ -108,6 +108,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if tasksChanged {
 				m.tasks.Cursor = openspec.FindCursorByText(m.tasks.Items, cursorText)
 			}
+			// Always drop the current tab's cached render: an unsaved exit
+			// leaves content unchanged (so mergeReloadedChange keeps the
+			// cache), but the viewport may have been resized during terminal
+			// re-entry, leaving the cached ANSI wrapped at the old width.
+			delete(m.renderCache, m.viewer.tab)
 		}
 		return m, m.loadViewport()
 
