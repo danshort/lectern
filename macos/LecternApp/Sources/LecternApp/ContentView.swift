@@ -191,9 +191,13 @@ struct WorktreeArtifactView: View {
 
     var body: some View {
         let artifact = model.artifact(for: ArtifactRef(changeName: change.name, kind: kind), in: change)
-        if case .specFile = kind {
+        switch kind {
+        case .specFile:
             SpecContentView(artifact: artifact, issues: artifact.readError ? [] : validateChange(change))
-        } else {
+        case .tasks:
+            // Read-only checklist: progress bar + check state, but not toggleable.
+            TasksView(changePath: change.path, content: artifact.content, readOnly: true)
+        default:
             ScrollableContent { ArtifactBody(artifact: artifact) }
         }
     }
@@ -226,6 +230,7 @@ struct ArtifactDetail: View {
 struct TasksView: View {
     let changePath: String
     let content: String   // from the model; changes when the file is reloaded (incl. external edits)
+    var readOnly: Bool = false   // worktree changes render checkboxes + progress but don't toggle
 
     @State private var items: [TaskItem] = []
     @State private var errorText: String?
@@ -253,25 +258,31 @@ struct TasksView: View {
                     Text(item.text)
                         .font(.title3).bold()
                         .padding(.top, index == 0 ? 0 : 12)
+                } else if readOnly {
+                    taskRow(item)
+                        .accessibilityLabel(item.text)
+                        .accessibilityValue(item.done ? "completed" : "not completed")
                 } else {
-                    Button { toggle(item) } label: {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Image(systemName: item.done ? "checkmark.square.fill" : "square")
-                                .foregroundStyle(item.done ? Color.accentColor : .secondary)
-                            Text(item.text)
-                                .strikethrough(item.done, color: .secondary)
-                                .foregroundStyle(item.done ? .secondary : .primary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(item.text)
-                    .accessibilityValue(item.done ? "completed" : "not completed")
-                    .accessibilityHint("Toggles this task")
+                    Button { toggle(item) } label: { taskRow(item) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(item.text)
+                        .accessibilityValue(item.done ? "completed" : "not completed")
+                        .accessibilityHint("Toggles this task")
                 }
             }
         }
         .onAppear { items = parseTasks(content) }
         .onChange(of: content) { newContent in items = parseTasks(newContent) }
+    }
+
+    private func taskRow(_ item: TaskItem) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Image(systemName: item.done ? "checkmark.square.fill" : "square")
+                .foregroundStyle(item.done ? Color.accentColor : .secondary)
+            Text(item.text)
+                .strikethrough(item.done, color: .secondary)
+                .foregroundStyle(item.done ? .secondary : .primary)
+        }
     }
 
     private func toggle(_ item: TaskItem) {
