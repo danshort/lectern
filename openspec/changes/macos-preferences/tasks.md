@@ -17,5 +17,5 @@
 ## 4. Spec + verification
 
 - [x] 4.1 Delta spec: ADD "Settings window" and "Adjustable content font size" requirements to `macos-app`
-- [ ] 4.2 `swift build` green; manual QA: slider + ⌘±/⌘0 change content size, persist across relaunch, sidebar/chrome unchanged
+- [x] 4.2 `swift build` green; manual QA: slider + ⌘±/⌘0 change content size, persist across relaunch, sidebar/chrome unchanged
 - [x] 4.3 Confirm no domain/golden changes; Go + Swift lanes unaffected
