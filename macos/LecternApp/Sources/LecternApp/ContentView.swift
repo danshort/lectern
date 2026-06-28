@@ -325,6 +325,7 @@ struct TasksView: View {
     @State private var pendingDelete: TaskItem?    // task awaiting delete confirmation
     @State private var hoveredID: String?          // row under the pointer (reveals affordances)
     @State private var dropTargetID: String?       // row a drag is currently over (insertion line)
+    @FocusState private var editorFocused: Bool    // drives focus + commit-on-blur for inline edit
 
     private var tasksPath: String { (changePath as NSString).appendingPathComponent("tasks.md") }
 
@@ -460,9 +461,18 @@ struct TasksView: View {
             .accessibilityHint("Toggles this task")
 
             if editing {
-                TextField("Task", text: $editingText, onCommit: { commitEdit(item) })
+                // Three-line wrapping editor. Tasks are single-line on disk, so
+                // commitEdit collapses any newline to a space; Return adds a line
+                // visually, clicking away (focus loss) saves, Esc cancels.
+                TextField("Task", text: $editingText, axis: .vertical)
+                    .lineLimit(3, reservesSpace: true)
                     .textFieldStyle(.roundedBorder)
-                    .onExitCommand { editingID = nil }   // Esc cancels
+                    .focused($editorFocused)
+                    .onAppear { editorFocused = true }
+                    .onExitCommand { editingID = nil }   // Esc cancels (no save)
+                    .onChange(of: editorFocused) { focused in
+                        if !focused, editingID == id(item) { commitEdit(item) }
+                    }
             } else {
                 Text(item.text)
                     .strikethrough(item.done, color: .secondary)
@@ -570,7 +580,10 @@ struct TasksView: View {
     }
 
     private func commitEdit(_ item: TaskItem) {
-        let newText = trimSpaceLocal(editingText)
+        // Collapse any visual newlines to spaces — tasks.md tasks are single-line.
+        let newText = trimSpaceLocal(editingText
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " "))
         editingID = nil
         guard !newText.isEmpty, newText != item.taskDescription else { return }
         run { try editTaskText(tasksPath, identity: item.taskDescription,
