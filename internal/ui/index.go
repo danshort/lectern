@@ -771,6 +771,9 @@ func (m Model) updateIndex(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.setMode(ModeViewingConfig)
 		return m.commitStateChange()
 
+	case "c":
+		return m, m.openLecternConfig()
+
 	case "w":
 		m.enterWorktrees()
 		return m, nil

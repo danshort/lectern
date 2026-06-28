@@ -1,10 +1,4 @@
-# editor-launch Specification
-
-## Purpose
-Allows editing the active artifact of a change in the system editor (`$EDITOR`) by pressing `e`, and automatically reloads the content when the editor is closed without needing to restart the TUI.
-
-## Requirements
-
+## ADDED Requirements
 
 ### Requirement: Resolve the opener from the editor configuration
 The opener used by `e` SHALL be resolved from `editor.open_with` (see the `config-file` capability) into one of two launch modes:
@@ -28,6 +22,8 @@ If the resolved opener cannot be launched (the executable is not found, or the l
 #### Scenario: Launch failure is surfaced
 - **WHEN** the resolved opener cannot be found or fails to launch
 - **THEN** the TUI shows an error message instead of silently doing nothing
+
+## MODIFIED Requirements
 
 ### Requirement: Open the active artifact in the external editor
 The TUI SHALL allow the user to open the file of the active tab's artifact by pressing `e`. The opener and its launch mode SHALL be resolved from configuration (see "Resolve the opener from the editor configuration"). In terminal mode the TUI SHALL suspend its control of the terminal before launching using `tea.ExecProcess` and resume it upon exit; in detached mode it SHALL launch the opener without yielding the terminal. After returning from (or launching) the editor, mouse tracking SHALL still be functional because mouse mode is declared in `View()` and re-applied on every render frame.
@@ -56,20 +52,9 @@ The TUI SHALL allow the user to open the file of the active tab's artifact by pr
 - **WHEN** the user returns from a terminal editor
 - **THEN** the user can immediately scroll the viewport with the mouse wheel without needing to restart the TUI
 
-### Requirement: Immediate reload after closing the editor
-The TUI SHALL reload the content of the edited artifact immediately upon returning from the editor, without waiting for the next polling cycle.
-
-#### Scenario: Reload tasks after editing
-- **WHEN** the user edits `tasks.md` in the editor and closes the editor
-- **THEN** the TUI shows the updated tasks content instantly, with the cursor restored by text
-
-#### Scenario: Reload markdown artifact after editing
-- **WHEN** the user edits `proposal.md`, `design.md`, or a `spec.md` and closes the editor
-- **THEN** the TUI invalidates the render cache for that tab and re-renders with the new content
-
 ### Requirement: Open the current spec in the external editor
 
-The TUI SHALL allow the user to open the spec being viewed by pressing `e` while in `ModeViewingSpec`. The opener and launch mode SHALL be resolved from configuration (see "Resolve the opener from the editor configuration"). The file opened SHALL be `openspec/specs/<name>/spec.md` for the spec currently being viewed. This SHALL apply both when the full spec is rendered and when a single requirement is focused, since requirements are sections within the same `spec.md` file. In terminal mode the TUI SHALL suspend its control of the terminal using `tea.ExecProcess` and resume on exit, with mouse tracking still functional after returning; in detached mode it SHALL launch without yielding the terminal.
+The TUI SHALL allow the user to open the spec being viewed by pressing `e` while in `ModeViewingSpec`. The opener and launch mode SHALL be resolved from configuration (see "Resolve the opener from the editor configuration"). The file opened SHALL be `openspec/specs/<name>/spec.md` for the spec currently being viewed. This SHALL apply both when the full spec is rendered and when a single requirement is focused, since requirements are sections within the same `spec.md` file. In terminal mode the TUI SHALL suspend control of the terminal using `tea.ExecProcess` and resume on exit, with mouse tracking still functional after returning; in detached mode it SHALL launch without yielding the terminal.
 
 #### Scenario: Open full spec in editor
 
@@ -90,17 +75,3 @@ The TUI SHALL allow the user to open the spec being viewed by pressing `e` while
 
 - **WHEN** the mode is `ModeViewingSpec`
 - **THEN** the help bar includes `e: edit`
-
-### Requirement: Reload spec content after editing
-
-The TUI SHALL reload the content of the edited spec immediately upon returning from the editor, so that changes made externally are reflected without restarting the TUI. The view SHALL remain in `ModeViewingSpec`, preserving full-spec or requirement-focus state.
-
-#### Scenario: Reload spec after editing
-
-- **WHEN** the user edits a spec's `spec.md` in the editor and closes it while in `ModeViewingSpec`
-- **THEN** the TUI re-renders the spec view with the updated content, staying in `ModeViewingSpec`
-
-#### Scenario: Focused requirement reflects edits
-
-- **WHEN** a single requirement is focused and the user edits that requirement's text in the editor and closes it
-- **THEN** the focused requirement view shows the updated requirement content
