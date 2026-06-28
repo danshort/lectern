@@ -7,19 +7,19 @@
 
 ## 2. Renumber engine (OpenSpecKit)
 
-- [x] 2.1 Implement a pure `renumberSection` helper that, given a section's prefix and an ordered list of its task lines, rewrites each line's number to `<prefix>.<sequentialOrdinal>` while preserving checkbox state, `~~` markers, and trailing text
-- [x] 2.2 Add a surgical splice writer that re-reads the file, locates the affected section line-span(s), replaces only those lines, and preserves existing line endings (reuse the toggle's deliberate CRLF handling)
-- [x] 2.3 Add conflict detection: if the targeted task can't be located or the affected section structure changed on the pre-write re-read, return a typed "file changed" result and do not write
-- [x] 2.4 Unit-test renumber + splice: middle-insert, tail-delete, in-section reorder, `3b` prefix preservation, and "surrounding sections/prose untouched"
+- [x] 2.1 Unit-test renumber + splice: middle-insert, tail-delete, in-section reorder, `3b` prefix preservation, and "surrounding sections/prose untouched"
+- [x] 2.2 Add conflict detection: if the targeted task can't be located or the affected section structure changed on the pre-write re-read, return a typed "file changed" result and do not write
+- [x] 2.3 Implement a pure `renumberSection` helper that, given a section's prefix and an ordered list of its task lines, rewrites each line's number to `<prefix>.<sequentialOrdinal>` while preserving checkbox state, `~~` markers, and trailing text
+- [x] 2.4 Add a surgical splice writer that re-reads the file, locates the affected section line-span(s), replaces only those lines, and preserves existing line endings (reuse the toggle's deliberate CRLF handling)
 
 ## 3. Edit operations (OpenSpecKit)
 
 - [x] 3.1 Implement `addTask(after:)` — insert a pending task after the given task (or at end of its section as fallback), then renumber that section
-- [x] 3.2 Implement `deleteTask` — remove the task, then renumber that section
+- [x] 3.2 Implement `deleteTask` — remove the task, then renumber that section.
 - [x] 3.3 Implement `reorderTask(within:)` — move a task to a new index in its section, then renumber that section
-- [x] 3.4 Implement `moveTask(toSection:at:)` — adopt the destination section's prefix, insert at the target index, then renumber both source and destination sections
-- [x] 3.5 Implement `editTaskText` — replace only the description, preserving checkbox state and `<prefix>.<ordinal>` number
-- [x] 3.6 Ensure every operation in this group re-reads before write and routes through the conflict-detection path (2.3)
+- [x] 3.4 Ensure every operation in this group re-reads before write and routes through the conflict-detection path (2.3)
+- [x] 3.5 Implement `moveTask(toSection:at:)` — adopt the destination section's prefix, insert at the target index, then renumber both source and destination sections
+- [x] 3.6 Implement `editTaskText` — replace only the description, preserving checkbox state and `<prefix>.<ordinal>` number
 - [x] 3.7 Add golden tests for each operation covering the spec scenarios (cross-section move, strikethrough, conflict-abort)
 
 ## 4. macOS tasks view (LecternApp)
@@ -34,7 +34,7 @@
 ## 5. Verification
 
 - [x] 5.1 `swift test` passes for OpenSpecKit (parser, identity, renumber, operations, conflict)
-- [ ] 5.2 Manual check: add/delete/reorder/cross-section-move/inline-edit on a real change, confirming numbers stay contiguous and prefixes (incl. `3b`) are preserved
-- [ ] 5.3 Manual check: edit a task while an external process rewrites `tasks.md`, confirming the edit aborts with the notice and no corruption
-- [ ] 5.4 Manual check: confirm editing controls are absent/disabled on a foreign-worktree change
-- [ ] 5.5 Update any affected docs/README notes for the macOS app's editing capability
+- [x] 5.2 Manual check: add/delete/reorder/cross-section-move/inline-edit on a real change, confirming numbers stay contiguous and prefixes (incl. `3b`) are preserved
+- [x] 5.3 Manual check: edit a task while an external process rewrites `tasks.md`, confirming the edit aborts with the notice and no corruption
+- [x] 5.4 Manual check: confirm editing controls are absent/disabled on a foreign-worktree change
+- [x] 5.5 Update any affected docs/README notes for the macOS app's editing capability
