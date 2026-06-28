@@ -365,6 +365,9 @@ struct TasksView: View {
                         .accessibilityValue(item.done ? "completed" : "not completed")
                 } else {
                     editableTaskRow(item)
+                    if isLastTaskOfSection(index) {
+                        endOfSectionDropZone(prefix: item.sectionPrefix)
+                    }
                 }
             }
         }
@@ -526,6 +529,40 @@ struct TasksView: View {
         .accessibilityLabel(label)
     }
 
+    // True when `index` is a task and the next item is a section or the end of
+    // the list — i.e. the last task of its section. (items holds only sections
+    // and tasks.)
+    private func isLastTaskOfSection(_ index: Int) -> Bool {
+        guard items[index].kind == .task else { return false }
+        let next = index + 1
+        return next >= items.count || items[next].kind == .section
+    }
+
+    // A drop target at the bottom of a section so a task can be moved to the very
+    // end (the per-row targets only insert *above* a row). Subtle until a drag is
+    // over it, when it shows the same insertion line.
+    @ViewBuilder
+    private func endOfSectionDropZone(prefix: String) -> some View {
+        let zoneID = "\u{2}END\u{1}" + prefix
+        Color.clear
+            .frame(maxWidth: .infinity)
+            .frame(height: 12)
+            .overlay(alignment: .top) {
+                Rectangle().fill(Color.accentColor).frame(height: 2)
+                    .opacity(dropTargetID == zoneID ? 1 : 0)
+            }
+            .contentShape(Rectangle())
+            .dropDestination(for: String.self) { payload, _ in
+                dropTargetID = nil
+                guard let dropped = payload.first else { return false }
+                performMoveToEnd(draggedID: dropped, sectionPrefix: prefix)
+                return true
+            } isTargeted: { targeted in
+                if targeted { dropTargetID = zoneID } else if dropTargetID == zoneID { dropTargetID = nil }
+            }
+            .accessibilityHidden(true)
+    }
+
     private func beginEdit(_ item: TaskItem) {
         editingID = id(item)
         editingText = item.taskDescription
@@ -562,6 +599,15 @@ struct TasksView: View {
         guard !(fromPrefix == target.sectionPrefix && draggedDesc == target.taskDescription) else { return }
         run { try moveTask(tasksPath, identity: draggedDesc, fromSection: fromPrefix,
                            toSection: target.sectionPrefix, toIndex: max(0, target.ordinal - 1)) }
+    }
+
+    // Drop onto a section's end zone: append the dragged task to that section.
+    private func performMoveToEnd(draggedID: String, sectionPrefix prefix: String) {
+        let parts = draggedID.split(separator: "\u{1}", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return }
+        let fromPrefix = String(parts[0]), draggedDesc = String(parts[1])
+        run { try moveTask(tasksPath, identity: draggedDesc, fromSection: fromPrefix,
+                           toSection: prefix, toIndex: Int.max) }
     }
 
     // Runs an edit op, mapping a conflict to a visible notice + disk refresh.

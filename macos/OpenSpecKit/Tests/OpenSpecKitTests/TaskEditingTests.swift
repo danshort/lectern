@@ -74,6 +74,14 @@ final class TaskEditingTests: XCTestCase {
             "## 1. S\n\n- [ ] 1.1 c\n- [ ] 1.2 a\n- [ ] 1.3 b\n")
     }
 
+    func testReorderToEndOfSameSection() throws {
+        let path = try writeTemp("## 1. S\n\n- [ ] 1.1 a\n- [ ] 1.2 b\n- [ ] 1.3 c\n")
+        // Move "a" to the end (end-of-section drop zone passes a large toIndex).
+        try moveTask(path, identity: "a", fromSection: "1", toSection: "1", toIndex: Int.max)
+        XCTAssertEqual(try read(path),
+            "## 1. S\n\n- [ ] 1.1 b\n- [ ] 1.2 c\n- [ ] 1.3 a\n")
+    }
+
     // ── Cross-section move adopts destination prefix, renumbers both (3.4) ─────
 
     func testMoveAcrossSectionsAdoptsPrefixAndRenumbers() throws {
