@@ -300,4 +300,18 @@ func TestToggleTaskByText(t *testing.T) {
 			t.Error("expected error for nonexistent file")
 		}
 	})
+
+	t.Run("ambiguous text refuses to toggle and leaves the file unchanged", func(t *testing.T) {
+		// Two byte-identical task lines (a malformed file): the toggle matches on
+		// full text, so this is the ambiguous case it must refuse.
+		const content = "## 1. S\n\n- [ ] 1.1 dup\n- [ ] 1.1 dup\n"
+		path := write(t, content)
+		_, err := ToggleTaskByText(path, "1.1 dup")
+		if err != ErrAmbiguousTask {
+			t.Fatalf("expected ErrAmbiguousTask, got %v", err)
+		}
+		if got := read(t, path); got != content {
+			t.Errorf("file should be unchanged on ambiguity, got %q", got)
+		}
+	})
 }

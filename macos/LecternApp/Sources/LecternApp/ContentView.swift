@@ -334,6 +334,23 @@ struct TasksView: View {
     // description), used for selection, editing, and drag payloads.
     private func id(_ item: TaskItem) -> String { item.sectionPrefix + "\u{1}" + item.taskDescription }
 
+    // Stable, kind-tagged row identity so SwiftUI tracks each row to its task
+    // (not its array slot) across reorder/add/delete. Task descriptions are
+    // unique within a section (#115), so task ids are unique; section rows are
+    // tagged separately to avoid colliding with them.
+    private struct TaskRow: Identifiable {
+        let id: String
+        let index: Int
+        let item: TaskItem
+    }
+
+    private var taskRows: [TaskRow] {
+        items.enumerated().map { idx, item in
+            let key = item.kind == .section ? "s\u{1}\(item.text)" : "t\u{1}\(id(item))"
+            return TaskRow(id: key, index: idx, item: item)
+        }
+    }
+
     var body: some View {
         ScrollableContent {
             if let errorText {
@@ -346,7 +363,9 @@ struct TasksView: View {
             }
             // Overall change progress lives in the persistent bar at the top of
             // the detail pane (#65); the Tasks view shows only per-section bars.
-            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+            ForEach(taskRows) { row in
+                let index = row.index
+                let item = row.item
                 if item.kind == .section {
                     HStack(alignment: .firstTextBaseline) {
                         Text(item.text).font(.title3).bold()
@@ -624,13 +643,30 @@ struct TasksView: View {
     }
 
     private func performAdd(after item: TaskItem) {
+        // A placeholder unique within the section, so repeated adds don't create
+        // colliding identities (#115).
+        let placeholder = uniquePlaceholder(inSection: item.sectionPrefix)
         run { try addTask(tasksPath, afterIdentity: item.taskDescription,
-                          inSection: item.sectionPrefix, description: "New task") }
-        // Select + edit the freshly added task for immediate typing.
-        let newItem = TaskItem(kind: .task, text: "", done: false, lineNum: 0,
-                               sectionPrefix: item.sectionPrefix, ordinal: item.ordinal + 1,
-                               taskDescription: "New task")
-        beginEdit(newItem)
+                          inSection: item.sectionPrefix, description: placeholder) }
+        // Select + edit the real freshly-added task (locate it in the reparsed
+        // items; skipped if the add conflicted and refreshed from disk).
+        if let added = items.first(where: {
+            $0.kind == .task && $0.sectionPrefix == item.sectionPrefix && $0.taskDescription == placeholder
+        }) {
+            beginEdit(added)
+        }
+    }
+
+    // First un-used name in "New task", "New task 2", … among the section's tasks.
+    private func uniquePlaceholder(inSection prefix: String) -> String {
+        let existing = Set(items
+            .filter { $0.kind == .task && $0.sectionPrefix == prefix }
+            .map(\.taskDescription))
+        let base = "New task"
+        if !existing.contains(base) { return base }
+        var n = 2
+        while existing.contains("\(base) \(n)") { n += 1 }
+        return "\(base) \(n)"
     }
 
     private func performDelete(_ item: TaskItem) {
@@ -662,6 +698,9 @@ struct TasksView: View {
             items = try op(); errorText = nil; notice = nil
         } catch TaskEditError.fileChanged {
             notice = "tasks.md changed on disk — refreshed."
+            refreshFromDisk()
+        } catch TaskEditError.ambiguous {
+            notice = "Multiple tasks share this text in the section — rename one to edit it."
             refreshFromDisk()
         } catch {
             errorText = "Couldn't write tasks.md: \(error.localizedDescription)"
