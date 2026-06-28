@@ -73,3 +73,38 @@ func LoadFile(path string) (Config, error) {
 	}
 	return c, nil
 }
+
+// configTemplate seeds a new config file: all settings commented out (so it
+// parses to defaults) but documented, so a user editing it sees the options.
+const configTemplate = `# lectern configuration — see https://github.com/danshort/lectern#configuration
+
+[editor]
+# How pressing "e" opens the active artifact:
+#   "$EDITOR" (default) — your $EDITOR, falling back to vi, in the terminal
+#   "system"            — the OS default app (open / xdg-open / start), detached
+#   "nvim", "code --wait", … — any editor command, in the terminal
+# open_with = "$EDITOR"
+`
+
+// EnsureFile returns the resolved config path, creating the parent directory
+// and a commented starter file when none exists yet. Used by the TUI's
+// "edit config" action so the user always lands in a documented file.
+func EnsureFile() (string, error) {
+	path, err := Path()
+	if err != nil {
+		return "", err
+	}
+	switch _, statErr := os.Stat(path); {
+	case statErr == nil:
+		return path, nil
+	case !errors.Is(statErr, fs.ErrNotExist):
+		return "", statErr
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(path, []byte(configTemplate), 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
+}

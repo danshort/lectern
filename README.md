@@ -255,6 +255,9 @@ With `open_with = "system"`, pressing `e` hands the file to your default Markdow
 lectern keeps running — your edit shows up on the next reload. The default stays `$EDITOR`,
 so terminal-only and SSH sessions are unaffected.
 
+Press `c` inside the TUI to open this config file in your editor (it's created with a
+commented template if it doesn't exist yet); changes take effect on the next launch.
+
 ---
 
 ## Project structure

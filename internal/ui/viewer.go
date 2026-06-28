@@ -19,6 +19,9 @@ func (m Model) updateViewer(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.setMode(ModeViewingConfig)
 		return m.commitStateChange()
 
+	case "c":
+		return m, m.openLecternConfig()
+
 	case "a", "esc":
 		// A foreign worktree change returns to the worktrees view it was
 		// opened from, not the index.
@@ -187,6 +190,18 @@ func (m *Model) openInEditor(path string) tea.Cmd {
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		return editorReturnMsg{err: err}
 	})
+}
+
+// openLecternConfig opens the user config file in the editor, creating a
+// commented starter file if none exists yet. Changes take effect on the next
+// launch (the config is read once at startup).
+func (m *Model) openLecternConfig() tea.Cmd {
+	path, err := config.EnsureFile()
+	if err != nil {
+		m.errMsg = "config: " + err.Error()
+		return clearErrAfter()
+	}
+	return m.openInEditor(path)
 }
 
 // clearErrAfter clears the transient error message after a short delay,

@@ -16,6 +16,7 @@
 - [x] 3.2 In `internal/ui/viewer.go` `openInEditor`, branch on mode: terminal → `tea.ExecProcess` (as today); detached → verify the handler exists, `Start()` it without yielding the terminal, then trigger the normal reload
 - [x] 3.3 Surface launch failures (opener not found / exec error) via `m.errMsg` instead of always returning `editorReturnMsg{}` (`viewer.go:170`)
 - [x] 3.4 Apply the same resolution to the spec-view editor open path (`ModeViewingSpec`)
+- [x] 3.5 Add a `c` keybinding (index + change-viewer) that opens the user config in the editor, creating a documented starter file if missing (`config.EnsureFile`); advertise it in the help overlay; test `EnsureFile`
 
 ## 4. Verification
 

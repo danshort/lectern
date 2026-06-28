@@ -54,6 +54,48 @@ func TestLoadFile(t *testing.T) {
 	})
 }
 
+func TestEnsureFile(t *testing.T) {
+	t.Run("creates a parseable starter file when missing", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Setenv("XDG_CONFIG_HOME", dir)
+		path, err := EnsureFile()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if path != filepath.Join(dir, "lectern", "config.toml") {
+			t.Errorf("unexpected path %q", path)
+		}
+		// The starter template must parse and yield defaults.
+		c, err := LoadFile(path)
+		if err != nil {
+			t.Fatalf("starter file should parse, got %v", err)
+		}
+		if c.Editor.OpenWith != "" {
+			t.Errorf("starter file should leave defaults, got %q", c.Editor.OpenWith)
+		}
+	})
+
+	t.Run("leaves an existing file untouched", func(t *testing.T) {
+		dir := t.TempDir()
+		t.Setenv("XDG_CONFIG_HOME", dir)
+		path := filepath.Join(dir, "lectern", "config.toml")
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		const existing = "[editor]\nopen_with = \"nvim\"\n"
+		if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := EnsureFile(); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := os.ReadFile(path)
+		if string(got) != existing {
+			t.Errorf("existing file should be untouched, got %q", string(got))
+		}
+	})
+}
+
 func TestPath(t *testing.T) {
 	t.Run("honors XDG_CONFIG_HOME", func(t *testing.T) {
 		t.Setenv("XDG_CONFIG_HOME", "/cfg")

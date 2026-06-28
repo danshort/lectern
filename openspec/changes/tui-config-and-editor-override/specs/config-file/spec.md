@@ -46,3 +46,15 @@ The configuration SHALL expose an `editor.open_with` string controlling how the 
 #### Scenario: Custom command selected
 - **WHEN** `config.toml` sets `editor.open_with = "nvim"`
 - **THEN** the configured opener is the `nvim` command
+
+### Requirement: Open the config file from the TUI
+The TUI SHALL provide a keybinding (`c`, available in index and change-viewer modes) that opens the user config file in the configured editor. When the file does not yet exist, the system SHALL create it with a documented, all-defaults starter template before opening. Changes take effect on the next launch.
+
+#### Scenario: Open an existing config
+- **WHEN** the user presses `c` and `config.toml` exists
+- **THEN** the TUI opens it using the resolved editor opener
+
+#### Scenario: Create then open when missing
+- **WHEN** the user presses `c` and no `config.toml` exists
+- **THEN** the TUI creates the parent directory and a commented starter file, then opens it
+
