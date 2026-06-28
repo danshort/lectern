@@ -77,7 +77,7 @@ final class AppModel: ObservableObject {
             if mode != oldValue {
                 rebuildSidebar()
                 selectDefault()
-                updateWorktreePolling()
+                updateWorktreeWatching()
             }
         }
     }
@@ -105,8 +105,9 @@ final class AppModel: ObservableObject {
 
     private var accessedURL: URL?
     private var watcher: DirectoryWatcher?
-    private var worktreePollTimer: Timer?
-    private let worktreePollInterval: TimeInterval = 1.5
+    // FSEvents watchers for foreign worktrees' openspec/ trees, active only in
+    // Worktrees mode (#98). The current worktree is covered by `watcher`.
+    private var worktreeWatchers: [DirectoryWatcher] = []
 
     // One AppModel per window (#69). The window's ProjectRef drives loading via
     // load(path:); the model no longer auto-restores a single project on init.
@@ -159,7 +160,7 @@ final class AppModel: ObservableObject {
     // (isTerminating) preserves the set so quitting reopens everything.
     func teardown() {
         watcher = nil
-        stopWorktreePolling()
+        worktreeWatchers = []
         accessedURL?.stopAccessingSecurityScopedResource()
         accessedURL = nil
         if !AppDelegate.isTerminating, let path = rootPath, project != nil {
@@ -167,51 +168,33 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - Live worktree progress (polling, mirrors the TUI's pollWorktrees)
+    // MARK: - Live worktree progress (FSEvents, #98)
 
-    // Run the poll only while the Worktrees mode is active; cross-worktree
-    // progress is visible nowhere else (#62).
-    private func updateWorktreePolling() {
-        if mode == .worktrees { startWorktreePolling() } else { stopWorktreePolling() }
-    }
-
-    private func startWorktreePolling() {
-        guard worktreePollTimer == nil else { return }
-        worktreePollTimer = Timer.scheduledTimer(withTimeInterval: worktreePollInterval,
-                                                 repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.pollWorktreeChanges() }
+    // Foreign-worktree progress is visible only in Worktrees mode (#62), so the
+    // watchers exist only then. The current worktree is already covered by the
+    // main project `watcher`; here we watch each non-bare *foreign* worktree's
+    // openspec/ tree. Re-synced whenever the worktree set is (re)loaded. Git
+    // enumeration stays on enter/reload — file events never re-enumerate.
+    private func updateWorktreeWatching() {
+        guard mode == .worktrees else {
+            worktreeWatchers = []   // deinit stops each stream
+            return
         }
-    }
-
-    private func stopWorktreePolling() {
-        worktreePollTimer?.invalidate()
-        worktreePollTimer = nil
-    }
-
-    // Re-read the already-surveyed worktree changes from disk and, if any
-    // content changed, refresh the sidebar (and, via worktreeChanges, the open
-    // read-only artifact). The worktree set itself is NOT re-enumerated here —
-    // add/remove stays on enter/reload, exactly like the TUI captures the set on
-    // entry. reloadChange is disk-only (no git).
-    private func pollWorktreeChanges() {
-        guard mode == .worktrees, !worktreeChanges.isEmpty else { return }
-        let loader = Loader()
-        var next = worktreeChanges
-        var changed = false
-        for (path, changes) in worktreeChanges {
-            var refreshed = changes
-            for i in changes.indices {
-                let fresh = loader.reloadChange(changes[i])
-                if fresh != changes[i] {
-                    refreshed[i] = fresh
-                    changed = true
+        worktreeWatchers = worktrees
+            .filter { !$0.bare && !$0.isCurrent }
+            .compactMap { wt in
+                let openspec = (wt.path as NSString).appendingPathComponent("openspec")
+                let target = FileManager.default.fileExists(atPath: openspec) ? openspec : wt.path
+                return DirectoryWatcher(path: target) { [weak self] in
+                    Task { @MainActor in self?.handleWorktreeFileChange() }
                 }
             }
-            next[path] = refreshed
-        }
-        guard changed else { return }   // no spurious rebuilds / selection churn
+    }
 
-        worktreeChanges = next
+    // A watched worktree changed on disk: re-survey and, only if something
+    // actually changed, rebuild the sidebar while preserving selection.
+    private func handleWorktreeFileChange() {
+        guard mode == .worktrees, surveyWorktreeChanges() else { return }
         let previous = selectedNodeID
         rebuildSidebar()
         if let previous, idToSelection[previous] != nil {
@@ -236,6 +219,7 @@ final class AppModel: ObservableObject {
         projectSpecs = (try? loader.loadProjectSpecsFrom(path)) ?? []
         projectConfig = try? loader.loadConfigFrom(path)
         loadWorktrees(path)
+        updateWorktreeWatching()   // re-sync watchers to the freshly-enumerated set (in Worktrees mode)
 
         let previous = selectedNodeID
         rebuildSidebar()
@@ -265,9 +249,17 @@ final class AppModel: ObservableObject {
             worktrees = []
             worktreesError = "Worktrees unavailable (git not found or not a working tree)."
         }
-        // Survey each non-bare worktree's active changes (task 1.1). Track which
-        // worktrees actually have an openspec/ project, to distinguish "project
-        // with no active changes" from "no project" (6.2).
+        _ = surveyWorktreeChanges()
+    }
+
+    // Surveys each non-bare worktree's active changes from disk (no git) and
+    // records which worktrees actually have an openspec/ project — distinguishing
+    // "project with no active changes" from "no project" (6.2). Returns whether
+    // the survey differs from the current state, so callers can skip a rebuild
+    // when nothing changed. Shared by loadWorktrees (after enumeration) and the
+    // FSEvents watchers (#98).
+    @discardableResult
+    private func surveyWorktreeChanges() -> Bool {
         var survey: [String: [Change]] = [:]
         var withProject: Set<String> = []
         let loader = Loader()
@@ -279,8 +271,12 @@ final class AppModel: ObservableObject {
                 survey[wt.path] = []
             }
         }
+        guard survey != worktreeChanges || withProject != worktreesWithProject else {
+            return false
+        }
         worktreeChanges = survey
         worktreesWithProject = withProject
+        return true
     }
 
     private func describe(_ error: Error) -> String {
