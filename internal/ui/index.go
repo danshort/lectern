@@ -38,14 +38,17 @@ func (m *Model) handleTick() tea.Cmd {
 func (m *Model) pollIndexMode() tea.Cmd {
 	diskChanges, err := m.loader.ListChangeNamesFrom(m.root)
 	if err != nil {
+		m.errMsg = "error reading changes: " + err.Error()
 		return nil
 	}
 	diskArchives, err := m.loader.ListArchiveNamesFrom(m.root)
 	if err != nil {
+		m.errMsg = "error reading archive: " + err.Error()
 		return nil
 	}
 	diskSpecs, err := m.loader.ListSpecNamesFrom(m.root)
 	if err != nil {
+		m.errMsg = "error reading specs: " + err.Error()
 		return nil
 	}
 
@@ -83,6 +86,8 @@ func (m *Model) pollIndexMode() tea.Cmd {
 
 	if p, err := m.loader.LoadFrom(m.root); err == nil {
 		m.project = p
+	} else {
+		m.errMsg = "error reloading project: " + err.Error()
 	}
 	var archiveErr error
 	m.index.ArchiveChanges, archiveErr = m.loader.ListArchiveChangesFrom(m.root)
@@ -108,6 +113,7 @@ func (m *Model) pollIndexMode() tea.Cmd {
 func (m *Model) pollNormalModeChanges() tea.Cmd {
 	diskNames, err := m.loader.ListChangeNamesFrom(m.root)
 	if err != nil {
+		m.errMsg = "error reading changes: " + err.Error()
 		return nil
 	}
 	if !sameNames(m.project.Changes, diskNames) {
@@ -115,23 +121,26 @@ func (m *Model) pollNormalModeChanges() tea.Cmd {
 		if ch := m.current(); ch != nil {
 			currentName = ch.Name
 		}
-		if p, err := m.loader.LoadFrom(m.root); err == nil {
-			m.project = p
-			m.viewer.changeIdx = 0
-			for i, ch := range p.Changes {
-				if ch.Name == currentName {
-					m.viewer.changeIdx = i
-					break
-				}
-			}
-			if len(p.Changes) == 0 {
-				return nil
-			}
-			m.renderCache = make(map[Tab]string)
-			m.viewer.tab = m.defaultTab()
-			m.loadTaskItems()
-			return m.loadViewport()
+		p, err := m.loader.LoadFrom(m.root)
+		if err != nil {
+			m.errMsg = "error reloading project: " + err.Error()
+			return nil
 		}
+		m.project = p
+		m.viewer.changeIdx = 0
+		for i, ch := range p.Changes {
+			if ch.Name == currentName {
+				m.viewer.changeIdx = i
+				break
+			}
+		}
+		if len(p.Changes) == 0 {
+			return nil
+		}
+		m.renderCache = make(map[Tab]string)
+		m.viewer.tab = m.defaultTab()
+		m.loadTaskItems()
+		return m.loadViewport()
 	}
 	return nil
 }

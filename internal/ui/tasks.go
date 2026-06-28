@@ -64,10 +64,18 @@ func (m *Model) doToggle() tea.Cmd {
 	if ch == nil {
 		return nil
 	}
-	if err := m.loader.ToggleTask(ch.Path+"/tasks.md", m.tasks.Items, m.tasks.Cursor); err != nil {
+	// Toggle by the cursor task's text, not its index: re-read + re-parse +
+	// match-by-text so a file that shifted since render can't flip the wrong
+	// line (#91). Adopt the freshly parsed items and keep the cursor on the
+	// same task by text.
+	cursorText := m.tasks.Items[m.tasks.Cursor].Text
+	items, err := m.loader.ToggleTaskByText(ch.Path+"/tasks.md", cursorText)
+	if err != nil {
 		m.errMsg = "error: " + err.Error()
 		return tea.Tick(3*time.Second, func(time.Time) tea.Msg { return errClearMsg{} })
 	}
+	m.tasks.Items = items
+	m.tasks.Cursor = openspec.FindCursorByText(items, cursorText)
 	m.refreshTasksViewport()
 	return nil
 }

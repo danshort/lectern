@@ -219,3 +219,85 @@ func TestToggleTask(t *testing.T) {
 		}
 	})
 }
+
+// TestToggleTaskByText pins the #91 fix: the toggle must re-read + re-parse and
+// match by text, so a file that shifted since render flips the right line.
+func TestToggleTaskByText(t *testing.T) {
+	write := func(t *testing.T, content string) string {
+		t.Helper()
+		path := filepath.Join(t.TempDir(), "tasks.md")
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	read := func(t *testing.T, path string) string {
+		t.Helper()
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(data)
+	}
+
+	t.Run("file shifted since render toggles the correct task", func(t *testing.T) {
+		// Rendered against a flat list, but the file has since gained a heading
+		// and blank line above, so the old line index is stale.
+		path := write(t, "## New Section\n\n- [ ] 1.1 alpha\n- [ ] 1.2 beta\n")
+		items, err := ToggleTaskByText(path, "1.2 beta")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := read(t, path); got != "## New Section\n\n- [ ] 1.1 alpha\n- [x] 1.2 beta\n" {
+			t.Errorf("wrong line toggled: %q", got)
+		}
+		// Returned items reflect the on-disk state.
+		idx := FindCursorByText(items, "1.2 beta")
+		if !items[idx].Done {
+			t.Error("returned items should show 1.2 beta done")
+		}
+	})
+
+	t.Run("preserves CRLF endings", func(t *testing.T) {
+		path := write(t, "## S\r\n\r\n- [ ] 1.1 alpha\r\n- [x] 1.2 beta\r\n")
+		if _, err := ToggleTaskByText(path, "1.2 beta"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := read(t, path); got != "## S\r\n\r\n- [ ] 1.1 alpha\r\n- [ ] 1.2 beta\r\n" {
+			t.Errorf("CRLF not preserved: %q", got)
+		}
+	})
+
+	t.Run("unknown text makes no change", func(t *testing.T) {
+		const content = "- [ ] 1.1 alpha\n"
+		path := write(t, content)
+		if _, err := ToggleTaskByText(path, "nonexistent"); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if got := read(t, path); got != content {
+			t.Errorf("file should be unchanged, got %q", got)
+		}
+	})
+
+	t.Run("round-trips pending and done", func(t *testing.T) {
+		path := write(t, "- [ ] 1.1 alpha\n")
+		if _, err := ToggleTaskByText(path, "1.1 alpha"); err != nil {
+			t.Fatal(err)
+		}
+		if got := read(t, path); got != "- [x] 1.1 alpha\n" {
+			t.Fatalf("expected done, got %q", got)
+		}
+		if _, err := ToggleTaskByText(path, "1.1 alpha"); err != nil {
+			t.Fatal(err)
+		}
+		if got := read(t, path); got != "- [ ] 1.1 alpha\n" {
+			t.Errorf("expected pending again, got %q", got)
+		}
+	})
+
+	t.Run("nonexistent file returns error", func(t *testing.T) {
+		if _, err := ToggleTaskByText("/nonexistent/tasks.md", "x"); err == nil {
+			t.Error("expected error for nonexistent file")
+		}
+	})
+}

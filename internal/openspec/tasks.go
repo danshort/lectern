@@ -116,3 +116,43 @@ func (l *Loader) ToggleTask(path string, items []TaskItem, idx int) error {
 func ToggleTask(path string, items []TaskItem, idx int) error {
 	return defaultLoader.ToggleTask(path, items, idx)
 }
+
+// ToggleTaskByText re-reads and re-parses the file, locates the task by its
+// text, and toggles that fresh line — never trusting a line index captured at
+// render time, so an external edit between render and keypress can't flip the
+// wrong line. It returns the freshly parsed items (so the caller renders the
+// real on-disk state). If no task with the given text is found it makes no
+// change and returns the current items. CRLF endings are preserved (the write
+// path splits on raw "\n").
+func (l *Loader) ToggleTaskByText(path, text string) ([]TaskItem, error) {
+	data, err := l.fs.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	content := string(data)
+	items := ParseTasks(content)
+	idx := FindCursorByText(items, text)
+	if idx >= len(items) || items[idx].Kind != KindTask || items[idx].Text != text {
+		return items, nil
+	}
+	lines := strings.Split(content, "\n")
+	ln := items[idx].LineNum
+	if ln >= len(lines) {
+		return items, nil
+	}
+	if items[idx].Done {
+		lines[ln] = strings.Replace(lines[ln], "- [x] ", "- [ ] ", 1)
+	} else {
+		lines[ln] = strings.Replace(lines[ln], "- [ ] ", "- [x] ", 1)
+	}
+	newContent := strings.Join(lines, "\n")
+	if err := l.fs.WriteFile(path, []byte(newContent), 0644); err != nil {
+		return nil, err
+	}
+	return ParseTasks(newContent), nil
+}
+
+// ToggleTaskByText is a package-level wrapper for Loader.ToggleTaskByText.
+func ToggleTaskByText(path, text string) ([]TaskItem, error) {
+	return defaultLoader.ToggleTaskByText(path, text)
+}
