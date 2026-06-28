@@ -439,10 +439,10 @@ struct TasksView: View {
             // buttons aren't swallowed by the drag gesture. Reserved width keeps
             // the layout stable; it just fades in on hover to signal draggability.
             Image(systemName: "line.3.horizontal")
-                .foregroundStyle(.tertiary)
-                .font(.caption)
-                .frame(width: 14)
-                .opacity(hovered ? 1 : 0)
+                .foregroundStyle(hovered ? .secondary : .tertiary)
+                .frame(width: 18, height: 20)
+                .contentShape(Rectangle())
+                .opacity(hovered ? 1 : 0.4)   // faintly visible at rest so it's discoverable + grabbable
                 .draggable(rowID)
                 .help("Drag to reorder or move to another section")
                 .accessibilityLabel("Reorder handle for \(item.taskDescription)")
@@ -481,13 +481,18 @@ struct TasksView: View {
                 }
             }
         }
-        .padding(.vertical, 1)
-        .background(selectedID == rowID ? Color.accentColor.opacity(0.12) : .clear)
+        .padding(.vertical, 2)
+        // Fill the row's full width and make the entire strip hit-testable, so
+        // hover (and the affordances it reveals) covers the whole row — not just
+        // the text/checkbox glyphs.
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(selectedID == rowID ? Color.accentColor.opacity(0.12) : Color.clear)
         // Insertion line: a drag currently hovering this row will drop above it.
         .overlay(alignment: .top) {
             Rectangle().fill(Color.accentColor).frame(height: 2)
                 .opacity(dropTargetID == rowID ? 1 : 0)
         }
+        .contentShape(Rectangle())
         .onHover { inside in
             if inside { hoveredID = rowID } else if hoveredID == rowID { hoveredID = nil }
         }
@@ -508,10 +513,9 @@ struct TasksView: View {
                             action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 22, height: 18)
-                .contentShape(Rectangle())   // full frame is clickable, not just the glyph
+                .foregroundStyle(.primary)        // clearly visible (the row already gates on hover)
+                .frame(width: 26, height: 22)
+                .contentShape(Rectangle())        // full frame is clickable, not just the glyph
         }
         .buttonStyle(.borderless)
         .help(help)
