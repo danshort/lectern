@@ -11,6 +11,10 @@ import Foundation
 /// refreshes from disk and surfaces a visible notice; no write occurs.
 public enum TaskEditError: Error, Equatable {
     case fileChanged
+    /// More than one task in the target section matched the identity. Task
+    /// descriptions are expected to be unique within a section (OpenSpec tasks
+    /// are numbered), so this signals a malformed file; the edit is refused.
+    case ambiguous
 }
 
 // ── Raw-line file model (line-ending preserving) ──────────────────────────────
@@ -104,14 +108,19 @@ private func lineIdentity(_ raw: String) -> String? {
 }
 
 /// Locates the raw-line index of the task with `identity` inside the section
-/// whose prefix is `prefix`. nil when not found (→ conflict).
-private func findTaskLine(_ doc: RawDoc, identity: String, prefix: String) -> Int? {
+/// whose prefix is `prefix`. Task descriptions are expected to be unique within
+/// a section: returns the single match, nil when none (→ `.fileChanged` at the
+/// call site), and throws `.ambiguous` on more than one (a malformed file)
+/// rather than silently picking the first.
+private func findTaskLine(_ doc: RawDoc, identity: String, prefix: String) throws -> Int? {
+    var found: Int?
     for section in doc.sections where section.prefix == prefix {
         for idx in section.taskLineIdxs where lineIdentity(doc.lines[idx]) == identity {
-            return idx
+            if found != nil { throw TaskEditError.ambiguous }
+            found = idx
         }
     }
-    return nil
+    return found
 }
 
 /// Renumbers every section whose prefix is in `prefixes`, in place.
@@ -143,7 +152,7 @@ public func addTask(_ path: String, afterIdentity: String, inSection prefix: Str
                     description: String, fs: FileSystem = OSFileSystem()) throws -> [TaskItem] {
     let content = String(decoding: try fs.readFile(path), as: UTF8.self)
     let doc = parseRaw(content)
-    guard let anchor = findTaskLine(doc, identity: afterIdentity, prefix: prefix) else {
+    guard let anchor = try findTaskLine(doc, identity: afterIdentity, prefix: prefix) else {
         throw TaskEditError.fileChanged
     }
     var lines = doc.lines
@@ -161,7 +170,7 @@ public func deleteTask(_ path: String, identity: String, inSection prefix: Strin
                        fs: FileSystem = OSFileSystem()) throws -> [TaskItem] {
     let content = String(decoding: try fs.readFile(path), as: UTF8.self)
     let doc = parseRaw(content)
-    guard let idx = findTaskLine(doc, identity: identity, prefix: prefix) else {
+    guard let idx = try findTaskLine(doc, identity: identity, prefix: prefix) else {
         throw TaskEditError.fileChanged
     }
     var lines = doc.lines
@@ -178,7 +187,7 @@ public func editTaskText(_ path: String, identity: String, inSection prefix: Str
                          newDescription: String, fs: FileSystem = OSFileSystem()) throws -> [TaskItem] {
     let content = String(decoding: try fs.readFile(path), as: UTF8.self)
     let doc = parseRaw(content)
-    guard let idx = findTaskLine(doc, identity: identity, prefix: prefix) else {
+    guard let idx = try findTaskLine(doc, identity: identity, prefix: prefix) else {
         throw TaskEditError.fileChanged
     }
     var lines = doc.lines
@@ -204,7 +213,7 @@ public func moveTask(_ path: String, identity: String, fromSection fromPrefix: S
                      fs: FileSystem = OSFileSystem()) throws -> [TaskItem] {
     let content = String(decoding: try fs.readFile(path), as: UTF8.self)
     let doc = parseRaw(content)
-    guard let srcIdx = findTaskLine(doc, identity: identity, prefix: fromPrefix) else {
+    guard let srcIdx = try findTaskLine(doc, identity: identity, prefix: fromPrefix) else {
         throw TaskEditError.fileChanged
     }
     var lines = doc.lines

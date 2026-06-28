@@ -127,6 +127,19 @@ final class TaskEditingTests: XCTestCase {
         XCTAssertEqual(try read(path), "## 1. S\n\n- [ ] 1.1 line1 line2\n")
     }
 
+    // #115: duplicate descriptions in a section are ambiguous — refuse, don't
+    // silently edit the first match.
+    func testAmbiguousDescriptionIsRefused() throws {
+        // Same number-stripped identity ("dup") on two tasks in section 1.
+        let path = try writeTemp("## 1. S\n\n- [ ] 1.1 dup\n- [ ] 1.2 dup\n")
+        let before = try read(path)
+        XCTAssertThrowsError(try editTaskText(path, identity: "dup", inSection: "1",
+                                              newDescription: "renamed")) { err in
+            XCTAssertEqual(err as? TaskEditError, .ambiguous)
+        }
+        XCTAssertEqual(try read(path), before, "no write should occur on an ambiguous match")
+    }
+
     // ── Conflict: target no longer present → abort, no write (3.6, D5) ─────────
 
     func testConflictThrowsAndDoesNotWrite() throws {

@@ -1,9 +1,16 @@
 package openspec
 
 import (
+	"errors"
 	"regexp"
 	"strings"
 )
+
+// ErrAmbiguousTask is returned by ToggleTaskByText when the cursor's text
+// matches more than one task. Task descriptions are expected to be unique
+// within a file (OpenSpec tasks are numbered), so a duplicate is malformed and
+// the toggle refuses rather than flipping the wrong line (#115).
+var ErrAmbiguousTask = errors.New("ambiguous task: multiple tasks share this text")
 
 type ItemKind int
 
@@ -92,6 +99,18 @@ func FindCursorByText(items []TaskItem, text string) int {
 	return first
 }
 
+// countTasksWithText counts KindTask items whose text matches exactly. Used to
+// detect an ambiguous (duplicate) toggle target; see ErrAmbiguousTask.
+func countTasksWithText(items []TaskItem, text string) int {
+	n := 0
+	for _, it := range items {
+		if it.Kind == KindTask && it.Text == text {
+			n++
+		}
+	}
+	return n
+}
+
 // ToggleTask flips the done state of items[idx] in memory and on disk.
 func (l *Loader) ToggleTask(path string, items []TaskItem, idx int) error {
 	data, err := l.fs.ReadFile(path)
@@ -134,6 +153,11 @@ func (l *Loader) ToggleTaskByText(path, text string) ([]TaskItem, error) {
 	idx := FindCursorByText(items, text)
 	if idx >= len(items) || items[idx].Kind != KindTask || items[idx].Text != text {
 		return items, nil
+	}
+	// Refuse to toggle when the text is ambiguous (duplicate descriptions are a
+	// malformed file) rather than flipping the first match (#115).
+	if countTasksWithText(items, text) > 1 {
+		return items, ErrAmbiguousTask
 	}
 	lines := strings.Split(content, "\n")
 	ln := items[idx].LineNum
