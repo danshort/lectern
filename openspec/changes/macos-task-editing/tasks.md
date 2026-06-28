@@ -24,12 +24,12 @@
 
 ## 4. macOS tasks view (LecternApp)
 
-- [ ] 4.1 Gate all editing controls on editability (disable for foreign-worktree/read-only changes, matching the existing toggle gating)
-- [ ] 4.2 Add the `+` (add after selected) and `−` (delete) controls wired to the OpenSpecKit operations
-- [ ] 4.3 Add a delete confirmation step (no Undo until #103)
-- [ ] 4.4 Add inline text editing: double-click a task's text to an editable field that saves via `editTaskText` on commit and cancels on escape
-- [ ] 4.5 Add drag-to-reorder with a drag handle, including cross-section drops, with a visually explicit destination section/insertion point during the drag
-- [ ] 4.6 On a conflict result, refresh the displayed tasks from the current file and surface a visible "file changed on disk" notice
+- [x] 4.1 Gate all editing controls on editability (disable for foreign-worktree/read-only changes, matching the existing toggle gating)
+- [x] 4.2 Add the `+` (add after selected) and `−` (delete) controls wired to the OpenSpecKit operations
+- [x] 4.3 Add a delete confirmation step (no Undo until #103)
+- [x] 4.4 Add inline text editing: double-click a task's text to an editable field that saves via `editTaskText` on commit and cancels on escape
+- [x] 4.5 Add drag-to-reorder with a drag handle, including cross-section drops, with a visually explicit destination section/insertion point during the drag
+- [x] 4.6 On a conflict result, refresh the displayed tasks from the current file and surface a visible "file changed on disk" notice
 
 ## 5. Verification
 

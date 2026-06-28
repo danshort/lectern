@@ -318,14 +318,27 @@ struct TasksView: View {
 
     @State private var items: [TaskItem] = []
     @State private var errorText: String?
+    @State private var notice: String?            // file-changed-on-disk notice (#97 conflict)
+    @State private var selectedID: String?        // identity of the selected task (add/delete target)
+    @State private var editingID: String?          // identity of the task being inline-edited
+    @State private var editingText: String = ""
+    @State private var pendingDelete: TaskItem?    // task awaiting delete confirmation
 
     private var tasksPath: String { (changePath as NSString).appendingPathComponent("tasks.md") }
+
+    // Stable per-task identity within the view (section prefix + number-stripped
+    // description), used for selection, editing, and drag payloads.
+    private func id(_ item: TaskItem) -> String { item.sectionPrefix + "\u{1}" + item.taskDescription }
 
     var body: some View {
         ScrollableContent {
             if let errorText {
                 Label(errorText, systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange).font(.callout)
+            }
+            if let notice {
+                Label(notice, systemImage: "arrow.clockwise")
+                    .foregroundStyle(.secondary).font(.callout)
             }
             // Overall change progress lives in the persistent bar at the top of
             // the detail pane (#65); the Tasks view shows only per-section bars.
@@ -349,16 +362,31 @@ struct TasksView: View {
                         .accessibilityLabel(item.text)
                         .accessibilityValue(item.done ? "completed" : "not completed")
                 } else {
-                    Button { toggle(item) } label: { taskRow(item) }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(item.text)
-                        .accessibilityValue(item.done ? "completed" : "not completed")
-                        .accessibilityHint("Toggles this task")
+                    editableTaskRow(item)
                 }
             }
         }
         .onAppear { items = parseTasks(content) }
-        .onChange(of: content) { newContent in items = parseTasks(newContent) }
+        .onChange(of: content) { newContent in
+            // External reload (incl. FSEvents): re-parse and drop any stale
+            // selection/edit state that no longer points at a live task.
+            items = parseTasks(newContent)
+            let live = Set(items.filter { $0.kind == .task }.map(id))
+            if let s = selectedID, !live.contains(s) { selectedID = nil }
+            if let e = editingID, !live.contains(e) { editingID = nil }
+        }
+        .confirmationDialog("Delete this task?",
+                            isPresented: Binding(get: { pendingDelete != nil },
+                                                 set: { if !$0 { pendingDelete = nil } }),
+                            titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let item = pendingDelete { performDelete(item) }
+                pendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: {
+            if let item = pendingDelete { Text(item.taskDescription) }
+        }
     }
 
     // Completed/total of the tasks belonging to the section at `index` (the
@@ -389,10 +417,124 @@ struct TasksView: View {
     private func toggle(_ item: TaskItem) {
         do {
             items = try toggleTaskByText(tasksPath, item.text)
-            errorText = nil
+            errorText = nil; notice = nil
         } catch {
             errorText = "Couldn't write tasks.md: \(error.localizedDescription)"
         }
+    }
+
+    // ── Editing UI (#97) ──────────────────────────────────────────────────────
+
+    @ViewBuilder
+    private func editableTaskRow(_ item: TaskItem) -> some View {
+        let selected = selectedID == id(item)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            // Checkbox toggles; the rest of the row selects / edits.
+            Button { toggle(item) } label: {
+                Image(systemName: item.done ? "checkmark.square.fill" : "square")
+                    .foregroundStyle(item.done ? Color.accentColor : .secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(item.done ? "Completed" : "Not completed")
+            .accessibilityHint("Toggles this task")
+
+            if editingID == id(item) {
+                TextField("Task", text: $editingText, onCommit: { commitEdit(item) })
+                    .textFieldStyle(.roundedBorder)
+                    .onExitCommand { editingID = nil }   // Esc cancels
+            } else {
+                Text(item.text)
+                    .strikethrough(item.done, color: .secondary)
+                    .foregroundStyle(item.done ? .secondary : .primary)
+                    .contentShape(Rectangle())
+                    .onTapGesture(count: 2) { beginEdit(item) }
+                    .onTapGesture { selectedID = selected ? nil : id(item) }
+            }
+
+            Spacer(minLength: 8)
+
+            if selected && editingID == nil {
+                Button { performAdd(after: item) } label: { Image(systemName: "plus") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .help("Add a task after this one")
+                    .accessibilityLabel("Add task after \(item.taskDescription)")
+                Button { pendingDelete = item } label: { Image(systemName: "minus") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary)
+                    .help("Delete this task")
+                    .accessibilityLabel("Delete \(item.taskDescription)")
+            }
+        }
+        .padding(.vertical, 1)
+        .background(selected ? Color.accentColor.opacity(0.12) : .clear)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(item.done ? "completed" : "not completed")
+        // Drag to reorder / move across sections.
+        .draggable(id(item))
+        .dropDestination(for: String.self) { payload, _ in
+            guard let dropped = payload.first else { return false }
+            performMove(draggedID: dropped, onto: item)
+            return true
+        }
+    }
+
+    private func beginEdit(_ item: TaskItem) {
+        editingID = id(item)
+        editingText = item.taskDescription
+        selectedID = id(item)
+    }
+
+    private func commitEdit(_ item: TaskItem) {
+        let newText = trimSpaceLocal(editingText)
+        editingID = nil
+        guard !newText.isEmpty, newText != item.taskDescription else { return }
+        run { try editTaskText(tasksPath, identity: item.taskDescription,
+                               inSection: item.sectionPrefix, newDescription: newText) }
+    }
+
+    private func performAdd(after item: TaskItem) {
+        run { try addTask(tasksPath, afterIdentity: item.taskDescription,
+                          inSection: item.sectionPrefix, description: "New task") }
+        // Select + edit the freshly added task for immediate typing.
+        let newItem = TaskItem(kind: .task, text: "", done: false, lineNum: 0,
+                               sectionPrefix: item.sectionPrefix, ordinal: item.ordinal + 1,
+                               taskDescription: "New task")
+        beginEdit(newItem)
+    }
+
+    private func performDelete(_ item: TaskItem) {
+        run { try deleteTask(tasksPath, identity: item.taskDescription, inSection: item.sectionPrefix) }
+        if selectedID == id(item) { selectedID = nil }
+    }
+
+    private func performMove(draggedID: String, onto target: TaskItem) {
+        let parts = draggedID.split(separator: "\u{1}", maxSplits: 1, omittingEmptySubsequences: false)
+        guard parts.count == 2 else { return }
+        let fromPrefix = String(parts[0]), draggedDesc = String(parts[1])
+        guard !(fromPrefix == target.sectionPrefix && draggedDesc == target.taskDescription) else { return }
+        run { try moveTask(tasksPath, identity: draggedDesc, fromSection: fromPrefix,
+                           toSection: target.sectionPrefix, toIndex: max(0, target.ordinal - 1)) }
+    }
+
+    // Runs an edit op, mapping a conflict to a visible notice + disk refresh.
+    private func run(_ op: () throws -> [TaskItem]) {
+        do {
+            items = try op(); errorText = nil; notice = nil
+        } catch TaskEditError.fileChanged {
+            notice = "tasks.md changed on disk — refreshed."
+            refreshFromDisk()
+        } catch {
+            errorText = "Couldn't write tasks.md: \(error.localizedDescription)"
+        }
+    }
+
+    private func refreshFromDisk() {
+        if let data = try? Data(contentsOf: URL(fileURLWithPath: tasksPath)) {
+            items = parseTasks(String(decoding: data, as: UTF8.self))
+        }
+    }
+
+    private func trimSpaceLocal(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
