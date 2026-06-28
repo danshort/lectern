@@ -471,7 +471,9 @@ struct TasksView: View {
 
             Spacer(minLength: 8)
 
-            if showControls {
+            // Always laid out (reserving width + height) and only faded in on
+            // hover — so revealing them never reflows text or shifts row height.
+            HStack(spacing: 2) {
                 rowControl("pencil", "Edit this task", "Edit \(item.taskDescription)") { beginEdit(item) }
                 rowControl("plus", "Add a task after this one", "Add task after \(item.taskDescription)") {
                     performAdd(after: item)
@@ -480,6 +482,8 @@ struct TasksView: View {
                     pendingDelete = item
                 }
             }
+            .opacity(showControls ? 1 : 0)
+            .allowsHitTesting(showControls)
         }
         .padding(.vertical, 2)
         // Fill the row's full width and make the entire strip hit-testable, so
