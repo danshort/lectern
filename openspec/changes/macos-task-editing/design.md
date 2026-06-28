@@ -35,8 +35,9 @@ Extend the matcher so a task's fingerprint is its description **after** removing
 - *Trade-off:* two tasks with identical descriptions in the same section are ambiguous — disambiguate by section + nearest-position. Rare in practice.
 
 ### D3 — Structured `TaskItem`, still line-based (no AST switch)
-Add structured fields to `TaskItem` (`sectionPrefix`, `ordinal`, `done`, `lineNum`, and the bare `description`) parsed out of the line, rather than leaving the number embedded in `text`. Keep the line-regex parser; do **not** move the task subsystem to swift-markdown ranges.
+Add structured fields to `TaskItem` (`sectionPrefix`, `ordinal`, and the bare `taskDescription`) parsed out of the line, rather than leaving the number embedded in `text`. Keep the line-regex parser; do **not** move the task subsystem to swift-markdown ranges.
 - *Why:* renumbering is fundamentally about line spans and number prefixes — the line model is closer to the problem than an AST. Rendering can keep using swift-markdown independently.
+- *Refinement (implementation):* these new fields are **in-memory only** — excluded from `TaskItem`'s `CodingKeys` and carrying defaults. `tasks.json` in `testdata/corpus/golden/` is a Go-produced cross-language golden, so the serialized `kind`/`text`/`done`/`line_num` shape must stay byte-identical. The edit layer consumes the structured fields; the contract is unchanged (verified: golden passes).
 
 ### D4 — Surgical, minimal-blast-radius writes via re-derive-on-current-content
 Every edit: re-read `tasks.md` → re-parse → locate the target by D2 fingerprint → compute the new lines for the affected section(s) only → splice those line spans → write (preserving existing line endings, per the current toggle's deliberate CRLF handling). Everything outside the touched section(s), including interspersed prose, is untouched.
@@ -50,7 +51,7 @@ If the pre-write re-read can't locate the target task (D2) or the affected secti
 Delete routes through a confirmation step (Undo is #103, not yet available). Editing controls are disabled for foreign-worktree changes, exactly as toggle already is.
 
 ### D7 — UI lives in the existing tasks view
-Add controls (`+`, `−`, drag handle, double-click-to-edit field) to the macOS tasks view in `ContentView.swift`, driven by new `OpenSpecKit` functions. "Add after selected" inserts relative to the focused task; if nothing is selected (e.g. focus on a heading), fall back to the end of that section.
+Add controls (`+`, `−`, an edit/pencil button, a drag handle, and the inline edit field) to the macOS tasks view in `ContentView.swift`, driven by new `OpenSpecKit` functions. Editing is reached via the pencil button or double-clicking the text. "Add after selected" inserts immediately after the task whose `+` is clicked.
 
 ## Risks / Trade-offs
 
@@ -64,7 +65,7 @@ Add controls (`+`, `−`, drag handle, double-click-to-edit field) to the macOS 
 
 Additive and macOS-only; no data migration. The existing toggle write path is generalized, not replaced — its re-read-before-write behavior is preserved and reused. Rollback is reverting the change; `tasks.md` files are unaffected when the feature is unused. No impact on the Go TUI.
 
-## Open Questions
+## Open Questions (resolved during implementation)
 
-- Exact drag affordance for cross-section drops (insertion line vs. highlighted destination section) — a UI detail to settle during implementation; functionally specified by the cross-section requirement.
-- Whether inline-edit should also allow toggling done-state from the field, or keep that to the existing checkbox (lean: keep separate).
+- **Drag affordance:** a drag handle (fades in on hover, the only draggable element so it doesn't swallow button clicks) initiates the drag; the drop target shows a 2px insertion line meaning "drop above this row," plus an explicit **end-of-section drop zone** so a task can be appended to a section's end (per-row targets only insert above). The edit/add/delete affordances and handle are revealed on hover/selection and are always laid out (reserved space, opacity-toggled) so revealing them never reflows the row.
+- **Inline editor:** a three-line wrapping field. Commits on **Cmd-Return** or **click-away** — and because a macOS `TextField` does not resign focus on outside clicks, commit is wired explicitly onto the click-away gestures (tapping another row, toggling, editing a different row, and a background tap catcher) rather than relying on focus loss. **Esc** cancels. Newlines are collapsed to spaces to keep tasks single-line. Done-state stays on the checkbox, not the editor.

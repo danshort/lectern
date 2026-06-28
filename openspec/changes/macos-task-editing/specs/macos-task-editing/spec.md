@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
-### Requirement: Structured task editing is available only for editable, well-formed numbered tasks
-The macOS tasks view SHALL expose add, delete, reorder, and inline-edit controls only when the change is editable (not a foreign worktree) and the tasks belong to numbered OpenSpec sections (`## <prefix>.` headings with `- [ ] <prefix>.<ordinal> <text>` tasks). For read-only (cross-worktree) changes the controls SHALL be disabled, matching the existing checkbox-toggle behavior.
+### Requirement: Structured task editing is available for editable changes
+The macOS tasks view SHALL expose add, delete, reorder, and inline-edit controls for a change in the current worktree, revealed per row on hover or selection. For read-only (cross-worktree) changes these controls SHALL be disabled, matching the existing checkbox-toggle behavior. Editing targets the OpenSpec single-line numbered task format (`## <prefix>.` headings with `- [ ] <prefix>.<ordinal> <text>` tasks); nested/indented and unnumbered tasks are out of scope.
 
 #### Scenario: Editing enabled for a local numbered change
 - **WHEN** the user views the tasks of a change in the current worktree whose `tasks.md` uses numbered sections
@@ -51,12 +51,35 @@ The system SHALL let the user drag a task into a different section. The moved ta
 - **WHEN** the user drags a task into a section whose heading is `## 3b. …`
 - **THEN** the moved task adopts the `3b` prefix (e.g. becomes `3b.<n>`), not a normalized integer prefix
 
+#### Scenario: Drop at the end of a section
+- **WHEN** the user drops a task on a section's end-of-section drop zone
+- **THEN** the task is appended as the last task of that section, and both affected sections are renumbered to stay contiguous
+
 ### Requirement: Inline-edit task text preserves the number
-The system SHALL let the user edit a task's description text in place. The edit SHALL change only the description; the task's `- [ ]`/`- [x]` state and its `<prefix>.<ordinal>` number SHALL be preserved.
+The system SHALL let the user edit a task's description text in place using a multi-line (wrapping) editor. The edit SHALL change only the description; the task's `- [ ]`/`- [x]` state and its `<prefix>.<ordinal>` number SHALL be preserved. The task SHALL remain single-line: any newline entered in the editor SHALL be collapsed to a single space on save.
 
 #### Scenario: Fix a word in a task
 - **WHEN** the user edits the text of `2.1` from "Implment API" to "Implement API"
 - **THEN** the line becomes `- [ ] 2.1 Implement API` with the checkbox state and number unchanged
+
+#### Scenario: Multi-line input is flattened
+- **WHEN** the user enters text containing line breaks in the editor and saves
+- **THEN** the task is written as a single line, with each newline replaced by a space
+
+### Requirement: Inline editor commit and cancel
+The inline editor SHALL commit the edit on Cmd-Return or when focus leaves the field (clicking another task, toggling a task, starting to edit a different task, or clicking empty space), and SHALL cancel without saving on Esc.
+
+#### Scenario: Commit on Cmd-Return
+- **WHEN** the user presses Cmd-Return while editing a task
+- **THEN** the edited text is saved
+
+#### Scenario: Commit on click-away
+- **WHEN** the user clicks another task or empty space while editing
+- **THEN** the in-progress edit is saved
+
+#### Scenario: Cancel on Escape
+- **WHEN** the user presses Esc while editing
+- **THEN** the editor closes and the task text is left unchanged
 
 ### Requirement: Positional renumbering recomputes ordinals and preserves section prefixes
 On any structural edit (add, delete, reorder, cross-section move) the system SHALL recompute task **ordinals** sequentially from 1 within each affected section, and SHALL preserve each section's **prefix** exactly as it appears in the `##` heading, including non-integer prefixes such as `3b`. The system SHALL NOT generate, reorder, or renumber sections.
@@ -74,7 +97,7 @@ When locating a task on disk before writing, the system SHALL match on the task'
 
 #### Scenario: Match a strikethrough task
 - **WHEN** the on-disk task is `- [ ] ~~6.1 Drop the cache~~ (skipped)`
-- **THEN** the task is located by the description "Drop the cache" (number and `~~` markers ignored)
+- **THEN** the task is located by the description "Drop the cache (skipped)" — the leading `<prefix>.<ordinal>` number and the `~~` strikethrough markers are removed, while text outside the markers is kept
 
 ### Requirement: Edits are surgical and re-read the file before writing
 Every structural edit SHALL re-read `tasks.md` immediately before writing, derive the change against the current file contents, and rewrite only the minimal span of lines affected (the touched section, or both sections for a cross-section move), leaving all other lines — including prose between tasks — byte-for-byte unchanged.
